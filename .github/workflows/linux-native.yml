@@ -1,7 +1,15 @@
+# Retained from upstream as a REFERENCE IMPLEMENTATION, not an active gate.
+#
+# This builds every dependency from source with explicit CMake flags — it is the
+# desktop analogue of android/superbuild/CMakeLists.txt, and the authoritative
+# record of which options upstream builds each dependency with (note OGRE v1.11.6
+# with OGRE_RESOURCEMANAGER_STRICT=0, mirrored in the Android superbuild).
+#
+# Trigger changed to manual-only: building six dependencies from source on every
+# master push is a lot of CI minutes for something used as documentation.
 name: Linux with Sysdeps
 on:
-  push:
-    branches: [master]
+  workflow_dispatch:
 jobs:
   linux:
     runs-on: ubuntu-22.04

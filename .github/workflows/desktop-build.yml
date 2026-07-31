@@ -2,127 +2,146 @@
 #
 # Purpose: enforce the "desktop build stays green" hard constraint (AGENTS.md #6).
 # The desktop build is the reference behavior every Android result is compared
-# against — if it breaks, Android failures become unattributable.
+# against — if it breaks, Android failures become unattributable, and ROADMAP
+# § 2.0 (OGRE 1.11 -> 14, desktop first) has nothing to measure against.
 #
-# Shape follows upstream's build-game.yml (Conan 2 + Ninja + CMake).
-# TODO(fork): copy the exact Conan remote URL from upstream's workflow before first run.
+# This is a direct adaptation of upstream's build-game.yml, which it replaces.
+# The Conan/CMake/Ninja recipe is proven; only the publish steps and artifact
+# names are changed. Do not "improve" it speculatively.
+#
+# NOTE: nvidia-cg-toolkit is still required to build. Cg cannot exist on ARM,
+# so removing this dependency is Phase 3.2 work — expect this line to disappear.
 
 name: Desktop build
 
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: desktop-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  CONAN_REMOTE_NAME: ror-deps
-  # TODO(fork): real URL — see upstream .github/workflows/build-game.yml
-  CONAN_REMOTE_URL: https://REPLACE-ME.invalid/conan
-
 jobs:
-  linux:
-    # The cheap gate — runs first, catches most breakage.
+  build-gcc:
     name: Linux (ubuntu-22.04)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
 
-      - name: Install system packages
+      - name: Cache conan
+        uses: actions/cache@v6
+        with:
+          key: conan-ubuntu-${{ hashFiles('conanfile.py') }}
+          path: ~/.conan2/
+
+      - name: Install dependencies
         run: |
+          curl "https://raw.githubusercontent.com/AnotherFoxGuy/ci-scripts/main/install-conan.sh" | sudo bash
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            ninja-build libgl1-mesa-dev libx11-dev libxaw7-dev libxrandr-dev \
-            libfreetype-dev libfreeimage-dev libzzip-dev libpython3-dev
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install Conan
-        run: |
-          pip install --upgrade "conan>=2.0"
-          conan profile detect --force
-          conan remote add "$CONAN_REMOTE_NAME" "$CONAN_REMOTE_URL" --force
-
-      - name: Cache Conan packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.conan2
-          key: conan-linux-${{ hashFiles('conanfile.py') }}
-          restore-keys: conan-linux-
+          sudo apt-get -y install \
+                  pkg-config \
+                  ninja-build \
+                  nvidia-cg-toolkit \
+                  libfreetype6-dev \
+                  libfreeimage-dev \
+                  libzzip-dev \
+                  libois-dev \
+                  libgl1-mesa-dev \
+                  libglu1-mesa-dev \
+                  libx11-dev \
+                  libxt-dev \
+                  libxaw7-dev \
+                  libxrandr-dev \
+                  libopenjp2-7-dev
+        shell: bash
 
       - name: Configure
         run: |
-          cmake -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=cmake/conan_provider.cmake \
-            -DCMAKE_INSTALL_PREFIX=redist
+          conan profile detect --force
+          echo "tools.system.package_manager:mode = install" > ~/.conan2/global.conf
+          echo "tools.system.package_manager:sudo = True" >> ~/.conan2/global.conf
+          conan remote add rigs-of-rods-deps https://nexus.anotherfoxguy.com/repository/rigs-of-rods/ -f
+          cmake . -GNinja -DCMAKE_BUILD_TYPE=Release -Bbuild -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=cmake/conan_provider.cmake -DCMAKE_INSTALL_PREFIX=redist -DCREATE_CONTENT_FOLDER=ON
+        shell: bash
 
       - name: Build
-        run: cmake --build build --parallel
+        run: |
+          cd build
+          ninja install
+        shell: bash
 
-      - name: Install
-        run: cmake --install build
+      - name: Copy *.so files
+        run: cmake -P ./tools/CI/copy_libs.cmake
+        shell: bash
 
-      - name: Trim Conan cache
-        if: always()
-        run: conan cache clean "*" -sbd
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload redist folder
+        uses: actions/upload-artifact@v7
         with:
           name: trussline-linux
           path: redist
 
-  windows:
-    # Matches the primary development machine — keep it, even though it costs more minutes.
-    name: Windows (windows-2025)
-    runs-on: windows-2025
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: ilammy/msvc-dev-cmd@v1
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install Conan
-        run: |
-          pip install --upgrade "conan>=2.0"
-          conan profile detect --force
-          conan remote add $env:CONAN_REMOTE_NAME $env:CONAN_REMOTE_URL --force
-
-      - name: Cache Conan packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.conan2
-          key: conan-windows-${{ hashFiles('conanfile.py') }}
-          restore-keys: conan-windows-
-
-      - name: Configure
-        run: >
-          cmake -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=cmake/conan_provider.cmake
-          -DCMAKE_INSTALL_PREFIX=redist
-
-      - name: Build
-        run: cmake --build build --parallel
-
-      - name: Install
-        run: cmake --install build
-
-      - name: Trim Conan cache
+      - name: Clean Conan pkgs
         if: always()
         run: conan cache clean "*" -sbd
+        shell: bash
 
-      - uses: actions/upload-artifact@v4
+  build-msvc:
+    name: Windows (windows-2025)
+    runs-on: windows-2025
+    env:
+      BUILD_TOOLS_PATH: C:\apps\build-tools\
+      CONAN_USER_HOME_SHORT: None
+    steps:
+      - run: echo $env:BUILD_TOOLS_PATH | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      # TODO(trussline): third-party host dependency inherited from upstream.
+      # Supplies the Windows Cg toolkit and build helpers. It should become
+      # unnecessary once Cg is eliminated (Phase 3.2); until then, mirroring it
+      # is worth considering — a solo project shouldn't have its CI hard-wired
+      # to someone else's self-hosted git server.
+      - name: Install Build tools
+        run: git clone https://git.anotherfoxguy.com/AnotherFoxGuy/build-tools.git %BUILD_TOOLS_PATH%
+        shell: cmd
+
+      - name: Cache conan packages
+        uses: actions/cache@v6
+        with:
+          key: conan-windows-${{ hashFiles('conanfile.py') }}
+          path: ~/.conan2
+
+      - name: Enable Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        run: |
+          conan remote add rigs-of-rods-deps https://nexus.anotherfoxguy.com/repository/rigs-of-rods/ -f
+          cmake . -GNinja -DCMAKE_BUILD_TYPE=Release -Bbuild -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=cmake/conan_provider.cmake -DCMAKE_INSTALL_PREFIX=redist -DCREATE_CONTENT_FOLDER=ON
+        shell: cmd
+
+      - name: Build
+        run: |
+          cd build
+          ninja install
+        shell: cmd
+
+      - name: Upload redist folder
+        uses: actions/upload-artifact@v7
         with:
           name: trussline-win
           path: redist
 
-# Deliberately NOT carried over from upstream: the itch.io Butler publish step.
-# Distribution is Phase 9 and Android-only (Play + F-Droid + direct APK) — see D-008.
+      - name: Clean Conan pkgs
+        if: always()
+        run: conan cache clean "*" -sbd
+        shell: cmd
+
+# Deliberately NOT carried over from upstream: the itch.io Butler publish steps.
+# Distribution is Phase 9 and Android-only (Play + F-Droid + direct APK) — D-008.
