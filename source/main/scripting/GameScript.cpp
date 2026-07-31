@@ -838,6 +838,12 @@ int GameScript::useOnlineAPI(const String& apiquery, const AngelScript::CScriptD
     if (App::app_disable_online_api->getBool())
         return 0;
 
+    // No API endpoint configured (the Trussline default - see CVar.cpp). Treat
+    // exactly like the disable flag rather than letting a detached curl thread
+    // fail on a malformed URL after telling the user "using Online API...".
+    if (App::mp_api_url->getStr().empty())
+        return 0;
+
     ScriptUnitID_t unit_id = App::GetScriptEngine()->getCurrentlyExecutingScriptUnit();
     if (unit_id == SCRIPTUNITID_INVALID)
         return 2;

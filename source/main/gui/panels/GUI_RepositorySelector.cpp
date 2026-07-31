@@ -199,9 +199,17 @@ void GetResources(std::string portal_url)
 {
     if (!RepositoryEndpointConfigured(portal_url))
     {
+        // MSG_NET_REFRESH_REPOLIST_FAILURE's payload contract is CurlFailInfo*
+        // (owner) - main.cpp casts it unchecked and ShowError() dereferences
+        // ->title on the first line, so a description-only Message here is a
+        // null-deref crash, not a graceful error.
+        CurlFailInfo* failinfo = new CurlFailInfo();
+        failinfo->title = _LC("RepositorySelector", "No mod repository is configured for this build.");
+        failinfo->curl_result = CURLE_OK;
+        failinfo->http_response = 0;
+
         App::GetGameContext()->PushMessage(
-                Message(MSG_NET_REFRESH_REPOLIST_FAILURE,
-                        _LC("RepositorySelector", "No mod repository is configured for this build.")));
+                Message(MSG_NET_REFRESH_REPOLIST_FAILURE, failinfo));
         return;
     }
 

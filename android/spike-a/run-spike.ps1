@@ -41,37 +41,11 @@ Write-Output "=== PROCESS ALIVE? ==="
 $p = & $adb shell "pidof $pkg"
 if ("$p".Trim()) { Write-Output "ALIVE pid=$p" } else { Write-Output "NOT RUNNING" }
 
-Write-Output "=== RENDER TARGET READBACK ==="
-$rb = "C:\Users\nico1\Desktop\Rigs Port\spike-a\readback.ktx"
-& $adb exec-out "run-as $pkg cat files/readback.ktx" > $rb 2>$null
-
-if ((Test-Path $rb) -and ((Get-Item $rb).Length -gt 1000)) {
-    $len = (Get-Item $rb).Length
-    Write-Output "pulled readback.ktx ($([math]::Round($len/1KB,1)) KB)"
-
-    # Sample the TAIL rather than a fixed offset: that is pixel data in any of
-    # these container formats, so no header-size guessing is needed.
-    #
-    # A cleared frame is one flat colour, so 'uniform' is EXPECTED. The question
-    # is only whether it is uniformly zero (black - clear colour never applied)
-    # or uniformly something else (the clear colour really landed).
-    $bytes = [System.IO.File]::ReadAllBytes($rb)
-    $sample = [Math]::Min(60000, $bytes.Length - 16)
-    $start = $bytes.Length - $sample
-    $nonZero = 0
-    $hist = @{}
-    for ($i = $start; $i -lt $bytes.Length; $i++) {
-        if ($bytes[$i] -ne 0) { $nonZero++ }
-        $hist["$($bytes[$i])"] = 1
-    }
-    Write-Output "sampled $sample tail bytes: $nonZero non-zero ($([math]::Round(100*$nonZero/$sample,1))%)"
-    Write-Output "distinct byte values: $($hist.Keys.Count)"
-    Write-Output "last 16 bytes: $(($bytes[($bytes.Length-16)..($bytes.Length-1)] | ForEach-Object { $_.ToString('X2') }) -join ' ')"
-    if ($nonZero -eq 0) {
-        Write-Output "VERDICT: render target is BLACK - clear colour never applied"
-    } else {
-        Write-Output "VERDICT: render target holds NON-BLACK pixel data - clear colour applied"
-    }
-} else {
-    Write-Output "readback.ktx not produced or empty"
-}
+# Pixel verification happens inside the app now: main.cpp reads the framebuffer
+# back with copyContentsToMemory and logs MILESTONE 3b / CONTROL lines with a
+# verdict. (The file-based readback this section used to do is a dead end on
+# this build: no PNG codec, DDS rejects non-power-of-two, KTX cannot encode.)
+Write-Output "=== VISUAL CHECK ==="
+& $adb shell screencap -p /sdcard/spikea.png
+& $adb pull /sdcard/spikea.png "C:\Users\nico1\Desktop\Rigs Port\spike-a\spikea-latest.png"
+Write-Output "screenshot pulled to spike-a\spikea-latest.png"

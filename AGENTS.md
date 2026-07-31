@@ -12,7 +12,7 @@ This project is a **solo-developer, AI-assisted** native Android (arm64) port of
 - **What:** Fork of `github.com/RigsOfRods/rigs-of-rods` (C++ / CMake / AngelScript), ported natively to Android arm64-v8a with Vulkan rendering via OGRE 14.x, packaged as a GameActivity (AGDK) app.
 - **Upstream base:** master, which pins **OGRE 1.11.6.1**. The 1.11→14.x upgrade is *our* work under the hands-off posture (D-012) and is sequenced **desktop-first** (ROADMAP § 2.0).
 - **Reference device:** a single **mid-to-low range** Android phone (D-013) — a harder target than the original plan's midrange baseline. Entry-tier budget is 30 fps at 720p-class. The emulator is for iteration only and produces no valid Gate 1 evidence.
-- **Current phase:** Phase 0 — in progress. The fork does not exist yet; this folder holds planning documents and staged scaffolding. *(Update this line as phases complete.)*
+- **Current phase:** Phase 0 complete; Phase 1 underway. **Spike A passed** — OGRE 14.5.2 renders RTSS-shaded geometry via Vulkan on Android (V-8–V-11). Spike B correctness fixes landed (Steps 1–2); solver extraction and the hardware benchmark remain. Gate 1 waits only on the entry-tier phone. *(Update this line as phases complete.)*
 - **Crown jewel:** the node/beam soft-body solver (`Actor` physics) — plain C++ mass-spring-damper, fixed 0.0005 s (2 kHz) Euler integration, architecturally separated from graphics (`GfxActor`). It survives any strategy pivot; everything else is replaceable.
 
 ## Hard constraints — never violate, never "temporarily" work around
