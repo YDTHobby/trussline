@@ -20,6 +20,28 @@ target_include_directories(native_app_glue PUBLIC
 
 add_library(spikea SHARED main.cpp)
 
+# shaderc, for RTSS -> SPIR-V. OGRE's Plugin_GLSLangProgramManager imported
+# target references only libshaderc.a at
+#   $NDK/sources/third_party/shaderc/libs/c++_static/<abi>/
+# which NDK 27 does not ship at all - it provides sources only, where older NDKs
+# shipped prebuilts. Built here with:
+#   ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk \
+#             APP_STL=c++_static APP_ABI=x86_64 APP_PLATFORM=android-29
+# and copied from obj/local/<abi> (ndk-build does not populate libs/ for static
+# modules). libshaderc.a alone is not enough: its transitive dependencies must be
+# named explicitly, in dependency order, or the link fails on SPIR-V symbols.
+set(SHADERC_LIB_DIR ${ANDROID_NDK}/sources/third_party/shaderc/libs/c++_static/${ANDROID_ABI})
+target_link_libraries(spikea PRIVATE
+    ${SHADERC_LIB_DIR}/libshaderc.a
+    ${SHADERC_LIB_DIR}/libshaderc_util.a
+    ${SHADERC_LIB_DIR}/libglslang.a
+    ${SHADERC_LIB_DIR}/libSPIRV.a
+    ${SHADERC_LIB_DIR}/libSPIRV-Tools-opt.a
+    ${SHADERC_LIB_DIR}/libSPIRV-Tools.a
+    ${SHADERC_LIB_DIR}/libOSDependent.a
+    ${SHADERC_LIB_DIR}/libOGLCompiler.a
+    ${SHADERC_LIB_DIR}/libHLSL.a)
+
 # Link the specific targets, NOT ${OGRE_LIBRARIES}.
 #
 # Two reasons, both discovered the hard way:
@@ -38,6 +60,8 @@ target_link_libraries(spikea
     PRIVATE
         native_app_glue
         OgreMain
+        OgreRTShaderSystem
+        Plugin_GLSLangProgramManager
         RenderSystem_Vulkan
         android
         log)

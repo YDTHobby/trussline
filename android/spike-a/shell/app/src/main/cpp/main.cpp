@@ -11,12 +11,16 @@
 // Everything is logged to logcat under "TrusslineSpikeA" because on a spike the
 // log IS the result.
 
+#include <android/asset_manager.h>
 #include <android/log.h>
 #include <android/native_window.h>
 #include <android_native_app_glue.h>
+#include <sys/stat.h>
 
 #include <Ogre.h>
 #include <OgreVulkanPlugin.h>
+#include <Plugins/GLSLang/OgreGLSLangProgramManager.h>
+#include <RTShaderSystem/OgreRTShaderSystem.h>
 
 #include <cmath>
 #include <cstdio>
@@ -32,6 +36,7 @@ struct SpikeState
 {
     Ogre::Root*          root     = nullptr;
     Ogre::VulkanPlugin*  vulkan   = nullptr;
+    Ogre::GLSLangPlugin* glslang  = nullptr;
     Ogre::RenderWindow*  window   = nullptr;
     Ogre::SceneManager*  scene    = nullptr;
     Ogre::Camera*        camera   = nullptr;
@@ -44,6 +49,52 @@ SpikeState g_spike;
 
 // App-private writable dir, captured at init so the render loop can write there.
 char g_dataPath[512] = {0};
+
+/// Copy an APK asset directory out to internal storage.
+///
+/// OGRE's resource system wants real filesystem paths, and APK assets are not a
+/// filesystem. Extracting once at startup is the same trick Phase 3.1 uses for
+/// content, so this doubles as a rehearsal of that seam.
+bool ExtractAssetDir(android_app* app, const char* dirName, std::string& outDir)
+{
+    AAssetManager* mgr = app->activity->assetManager;
+    AAssetDir* dir = AAssetManager_openDir(mgr, dirName);
+    if (dir == nullptr)
+    {
+        LOGE("asset dir '%s' not found in APK", dirName);
+        return false;
+    }
+
+    outDir = std::string(g_dataPath) + "/" + dirName;
+    ::mkdir(outDir.c_str(), 0755);
+
+    int copied = 0;
+    const char* name = nullptr;
+    while ((name = AAssetDir_getNextFileName(dir)) != nullptr)
+    {
+        const std::string assetPath = std::string(dirName) + "/" + name;
+        AAsset* asset = AAssetManager_open(mgr, assetPath.c_str(), AASSET_MODE_BUFFER);
+        if (asset == nullptr)
+        {
+            continue;
+        }
+
+        const void* buf = AAsset_getBuffer(asset);
+        const off_t  len = AAsset_getLength(asset);
+        FILE* out = std::fopen((outDir + "/" + name).c_str(), "wb");
+        if (out != nullptr && buf != nullptr)
+        {
+            std::fwrite(buf, 1, static_cast<size_t>(len), out);
+            std::fclose(out);
+            ++copied;
+        }
+        AAsset_close(asset);
+    }
+    AAssetDir_close(dir);
+
+    LOGI("extracted %d files from asset dir '%s' to %s", copied, dirName, outDir.c_str());
+    return copied > 0;
+}
 
 void InitOgre(android_app* app)
 {
@@ -67,6 +118,17 @@ void InitOgre(android_app* app)
 
         g_spike.vulkan = new Ogre::VulkanPlugin();
         g_spike.root->installPlugin(g_spike.vulkan);
+
+        // Vulkan consumes SPIR-V, not GLSL source. Without this plugin nothing
+        // registers a shader language at all and RTSS dies with the memorable
+        // "No program writer for language null". GLSLangPlugin registers
+        // "glslang", which compiles GLSL down to SPIR-V.
+        //
+        // Phase 3 note: this is a hard requirement for RTSS on Vulkan, and it is
+        // a THIRD thing Stage 1 needs beyond "switch RTSS on" - alongside the
+        // resolver listener and the staged RTShaderLib.
+        g_spike.glslang = new Ogre::GLSLangPlugin();
+        g_spike.root->installPlugin(g_spike.glslang);
 
         const Ogre::RenderSystemList& renderers = g_spike.root->getAvailableRenderers();
         LOGI("available renderers: %zu", renderers.size());
@@ -108,6 +170,125 @@ void InitOgre(android_app* app)
         g_spike.camera   = g_spike.scene->createCamera("SpikeCam");
         g_spike.viewport = g_spike.window->addViewport(g_spike.camera);
         g_spike.viewport->setBackgroundColour(Ogre::ColourValue(0.10f, 0.20f, 0.40f));
+
+        // === MILESTONE 4: RTSS ===
+        //
+        // This is the load-bearing one. ROADMAP 3.2 stages the entire Cg removal
+        // on "initialise RTSS with PSSM off and ~350 fixed-function materials
+        // light up for free". But RoR has never once initialised RTSS (V-6) - it
+        // ships as dormant content - so that plan currently rests on an
+        // assumption. Vulkan has no fixed-function pipeline at all, so if RTSS
+        // cannot generate shaders here, nothing renders and Phase 3 gets much
+        // worse. Cheapest possible place to find out.
+        LOGI("=== MILESTONE 4: initialising RTSS ===");
+
+        // TWO resource locations are required, not one.
+        //
+        // RTShaderLib holds the SGXLib/FFPLib shader fragments, but the GLSL it
+        // generates also #includes OgreUnifiedShader.h, which lives in OGRE's
+        // Media/Main. Miss that and shader generation dies with
+        // "Cannot locate resource OgreUnifiedShader.h".
+        Ogre::ResourceGroupManager& rgm = Ogre::ResourceGroupManager::getSingleton();
+
+        std::string rtssDir;
+        if (!ExtractAssetDir(app, "RTShaderLib", rtssDir))
+        {
+            LOGE("FAIL: could not stage RTShaderLib - RTSS cannot generate shaders");
+            return;
+        }
+        rgm.addResourceLocation(rtssDir, "FileSystem", Ogre::RGN_INTERNAL);
+
+        std::string mainDir;
+        if (!ExtractAssetDir(app, "OgreMain", mainDir))
+        {
+            LOGE("FAIL: could not stage OGRE Media/Main (OgreUnifiedShader.h)");
+            return;
+        }
+        rgm.addResourceLocation(mainDir, "FileSystem", Ogre::RGN_INTERNAL);
+
+        rgm.initialiseAllResourceGroups();
+
+        if (!Ogre::RTShader::ShaderGenerator::initialize())
+        {
+            LOGE("FAIL: ShaderGenerator::initialize() returned false");
+            return;
+        }
+
+        Ogre::RTShader::ShaderGenerator* sg =
+            Ogre::RTShader::ShaderGenerator::getSingletonPtr();
+        sg->addSceneManager(g_spike.scene);
+        sg->setTargetLanguage("glslang");
+        g_spike.viewport->setMaterialScheme(Ogre::MSN_SHADERGEN);
+        LOGI("MILESTONE 4 OK: RTSS initialised, viewport scheme -> %s",
+             Ogre::MSN_SHADERGEN.c_str());
+
+        // === MILESTONE 5: geometry through an RTSS-generated shader ===
+        LOGI("=== MILESTONE 5: building geometry ===");
+
+        Ogre::MaterialPtr mat = Ogre::MaterialManager::getSingleton().create(
+            "SpikeMat", Ogre::RGN_INTERNAL);
+        Ogre::Pass* pass = mat->getTechnique(0)->getPass(0);
+        pass->setDiffuse(Ogre::ColourValue(1.0f, 0.35f, 0.05f));
+        pass->setSpecular(Ogre::ColourValue(0.4f, 0.4f, 0.4f));
+        pass->setShininess(32.0f);
+        pass->setLightingEnabled(true);
+
+        // Enabling RTSS is NOT enough on its own.
+        //
+        // Setting the viewport scheme only says "use shader-generated techniques";
+        // it does not retrofit anything. Each material still needs a shader-based
+        // technique created against that scheme, or Vulkan - which has no fixed
+        // function pipeline - throws "technique has no Vertex Shader".
+        //
+        // Directly relevant to ROADMAP 3.2: the plan's Stage 1 assumes flipping
+        // RTSS on lights up ~350 fixed-function materials for free. It does not.
+        // Production needs a MaterialManager::Listener resolving scheme-not-found
+        // on demand (what OgreBites' SGTechniqueResolverListener does, and Bites
+        // is disabled here). Doing it explicitly for one material keeps the spike
+        // minimal while proving the mechanism.
+        // Must be loaded first. createShaderBasedTechnique() searches
+        // getSupportedTechniques(), which stays empty until the material is
+        // compiled - so on a freshly created material it silently returns false
+        // with no diagnostic.
+        mat->load();
+
+        if (!sg->createShaderBasedTechnique(*mat, Ogre::MSN_DEFAULT, Ogre::MSN_SHADERGEN))
+        {
+            LOGE("FAIL: createShaderBasedTechnique() rejected the material");
+            return;
+        }
+        if (!sg->validateMaterial(Ogre::MSN_SHADERGEN, mat->getName(), Ogre::RGN_INTERNAL))
+        {
+            LOGE("FAIL: validateMaterial() - RTSS could not compile a shader for it");
+            return;
+        }
+        LOGI("RTSS generated and validated a shader for 'SpikeMat'");
+
+        Ogre::ManualObject* obj = g_spike.scene->createManualObject("SpikeTri");
+        obj->begin("SpikeMat", Ogre::RenderOperation::OT_TRIANGLE_LIST, Ogre::RGN_INTERNAL);
+        obj->position(-1.0f, -1.0f, 0.0f); obj->normal(0, 0, 1); obj->colour(1, 0, 0);
+        obj->position( 1.0f, -1.0f, 0.0f); obj->normal(0, 0, 1); obj->colour(0, 1, 0);
+        obj->position( 0.0f,  1.2f, 0.0f); obj->normal(0, 0, 1); obj->colour(0, 0, 1);
+        obj->triangle(0, 1, 2);
+        obj->end();
+        g_spike.scene->getRootSceneNode()->createChildSceneNode()->attachObject(obj);
+
+        g_spike.scene->setAmbientLight(Ogre::ColourValue(0.4f, 0.4f, 0.4f));
+        Ogre::Light* light = g_spike.scene->createLight("SpikeLight");
+        light->setType(Ogre::Light::LT_DIRECTIONAL);
+        Ogre::SceneNode* ln = g_spike.scene->getRootSceneNode()->createChildSceneNode();
+        ln->attachObject(light);
+        ln->setDirection(Ogre::Vector3(-0.3f, -0.5f, -1.0f).normalisedCopy());
+
+        g_spike.camera->setNearClipDistance(0.1f);
+        g_spike.camera->setAutoAspectRatio(true);
+        Ogre::SceneNode* cn = g_spike.scene->getRootSceneNode()->createChildSceneNode();
+        cn->setPosition(0, 0, 4);
+        cn->attachObject(g_spike.camera);
+        cn->lookAt(Ogre::Vector3::ZERO, Ogre::Node::TS_WORLD);
+
+        LOGI("MILESTONE 5 OK: triangle built - if RTSS failed to compile a shader,"
+             " the next frame throws rather than silently drawing nothing");
 
         g_spike.ready = true;
         LOGI("=== INIT COMPLETE - entering render loop ===");
