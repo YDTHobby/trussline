@@ -25,42 +25,68 @@
 
 #include "Application.h"
 
+#include <cstdint>
+#include <cstring>
+
 static int mirand = 1;
+
+/// Reinterpret a bit pattern as float, and back.
+///
+/// Do NOT "simplify" these back to `*(float*)&i`. That form is a strict-aliasing
+/// violation, and GCC/Clang exploit strict aliasing far more aggressively than
+/// MSVC does — on aarch64 the old form was a latent miscompile on the solver's
+/// hottest path. std::bit_cast is the modern spelling, but this project builds
+/// as C++11; memcpy is the portable equivalent and optimises to the same
+/// instruction.
+inline float bit_cast_to_float(const int32_t bits)
+{
+    float f;
+    std::memcpy(&f, &bits, sizeof(f));
+    return f;
+}
+
+inline float bit_cast_to_float(const uint32_t bits)
+{
+    float f;
+    std::memcpy(&f, &bits, sizeof(f));
+    return f;
+}
+
+inline int32_t bit_cast_to_int(const float f)
+{
+    int32_t bits;
+    std::memcpy(&bits, &f, sizeof(bits));
+    return bits;
+}
 
 // Returns a random number in the range [0, 1]
 inline float frand()
 {
-    unsigned int a;
-
     mirand *= 16807;
 
-    a = (mirand&0x007fffff) | 0x40000000;
+    const uint32_t a = (static_cast<uint32_t>(mirand) & 0x007fffffu) | 0x40000000u;
 
-    return( *((float*)&a) - 2.0f )*0.5f;
+    return (bit_cast_to_float(a) - 2.0f) * 0.5f;
 }
 
 // Returns a random number in the range [0, 2]
 inline float frand_02()
 {
-    unsigned int a;
-
     mirand *= 16807;
 
-    a = (mirand&0x007fffff) | 0x40000000;
+    const uint32_t a = (static_cast<uint32_t>(mirand) & 0x007fffffu) | 0x40000000u;
 
-    return( *((float*)&a) - 2.0f );
+    return bit_cast_to_float(a) - 2.0f;
 }
 
 // Returns a random number in the range [-1, 1]
 inline float frand_11()
 {
-    unsigned int a;
-
     mirand *= 16807;
 
-    a = (mirand&0x007fffff) | 0x40000000;
+    const uint32_t a = (static_cast<uint32_t>(mirand) & 0x007fffffu) | 0x40000000u;
 
-    return( *((float*)&a) - 3.0f );
+    return bit_cast_to_float(a) - 3.0f;
 }
 
 // Calculates approximate e^x.
@@ -73,7 +99,7 @@ inline float approx_exp(const float x)
         return 1e38f ;
     else {
         int i=12102203*x+1064652319;
-        return *(float *)&i;
+        return bit_cast_to_float(static_cast<int32_t>(i));
     }
 }
 
@@ -83,27 +109,25 @@ inline float approx_pow2(const float x)
 {
     int i = 8388608*x+1065353216;
 
-    return *(float *)&i;
+    return bit_cast_to_float(static_cast<int32_t>(i));
 }
 
 // Calculates approximate x^y
 // Use it in code not requiring precision
 inline float approx_pow(const float x, const float y)
 {
-    float v = x;
-    int i = y * ( (*(int *)&v) - 1065353216) + 1065353216;
+    int i = y * (bit_cast_to_int(x) - 1065353216) + 1065353216;
 
-    return *(float *)&i;
+    return bit_cast_to_float(static_cast<int32_t>(i));
 }
 
 // Calculates approximate square_root(x)
 // Use it in code not requiring precision
 inline float approx_sqrt(const float y)
 {
-    float f = y;
-    int i = (( (*(int *)&f) - 1065353216)>>1) + 1065353216;
+    int i = ((bit_cast_to_int(y) - 1065353216)>>1) + 1065353216;
 
-    return *(float *)&i;
+    return bit_cast_to_float(static_cast<int32_t>(i));
 }
 
 // Calculates approximate 1/square_root(x)
@@ -111,10 +135,9 @@ inline float approx_sqrt(const float y)
 // use it in code not requiring precision
 inline float approx_invSqrt(const float y)
 {
-    float f = y;
-    int i = 0x5f3759df - ( (*(int *)&f) >> 1);
+    int i = 0x5f3759df - (bit_cast_to_int(y) >> 1);
 
-    return *(float *)&i;
+    return bit_cast_to_float(static_cast<int32_t>(i));
 }
 
 // This function is a classic 1/square_root(x)code
@@ -123,9 +146,8 @@ inline float approx_invSqrt(const float y)
 // to drive a physics engine.
 inline float fast_invSqrt(const float v)
 {
-    float y = v;
-    int i = 0x5f3759df - ( (*(int *)&y) >>1);
-    y = *(float *)&i;
+    int i = 0x5f3759df - (bit_cast_to_int(v) >>1);
+    float y = bit_cast_to_float(static_cast<int32_t>(i));
 
     y *= (1.5f - (0.5f * v * y * y));
     return y;
