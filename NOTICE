@@ -1,0 +1,90 @@
+Trussline
+=========
+
+Trussline is a native Android (arm64 / Vulkan) port of the Rigs of Rods
+soft-body physics simulator.
+
+Trussline is an independent derivative work. It is NOT affiliated with,
+endorsed by, or supported by the Rigs of Rods project or its maintainers.
+Please do not direct Trussline bug reports, support requests, or feedback
+to the upstream project.
+
+
+UPSTREAM ATTRIBUTION
+--------------------
+
+Trussline is derived from Rigs of Rods:
+
+    https://github.com/RigsOfRods/rigs-of-rods
+
+Copyright (c) 2005-2013 Pierre-Michel Ricordel
+Copyright (c) 2007-2013 Thomas Fischer
+Copyright (c) 2009-2025 Petr Ohlidal and Rigs of Rods contributors
+
+The overwhelming majority of this codebase — including the node/beam
+soft-body solver that is its most valuable component — is the work of the
+Rigs of Rods contributors listed in AUTHORS.md, accumulated over roughly
+two decades. Trussline adds an Android platform layer on top of that work.
+
+"Rigs of Rods" and the Rigs of Rods logo are identifiers of the upstream
+project. Trussline does not use them, and the GPL grants no rights to them:
+the GPL covers copyright, not trademarks. Any reference to Rigs of Rods in
+this project is factual attribution of provenance, not a claim of
+affiliation or endorsement.
+
+
+LICENSE
+-------
+
+Trussline is free software licensed under the GNU General Public License
+version 3 or later, the same license as its upstream. See COPYING for the
+full text.
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+Complete corresponding source for every distributed binary is published at
+the Trussline repository. This obligation applies to every distribution
+channel, including app stores.
+
+
+THIRD-PARTY COMPONENTS
+----------------------
+
+For the licenses of bundled and linked libraries, see DEPENDENCIES.md.
+
+Notable obligations:
+
+  - LGPL components (OpenAL Soft, SocketW, Caelum where still present)
+    require that users be able to replace the library. Tracked per
+    component in the licensing workstream; see ROADMAP.md.
+
+  - The NVIDIA Cg Toolkit is proprietary and is NOT redistributable with
+    a GPL binary. It does not exist on Android at all. Its removal is a
+    licensing obligation, not merely a porting task. See LEGAL.md.
+
+
+CONTENT
+-------
+
+Game content is licensed separately from code and is NOT covered by this
+project's license unless explicitly stated.
+
+Community-created Rigs of Rods vehicles, terrains, and other assets are
+licensed by their individual creators, are largely unlicensed for
+redistribution, and in some cases contain third-party trademarks or assets
+derived from other works. Trussline does not and will not redistribute
+them.
+
+Only content Trussline owns, has commissioned, or has verified as
+redistributable is shipped. See LEGAL.md for the full analysis.

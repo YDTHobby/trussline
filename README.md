@@ -1,98 +1,68 @@
-![release](https://flat.badgen.net/github/release/RigsOfRods/rigs-of-rods)
-![contributors](https://flat.badgen.net/github/contributors/RigsOfRods/rigs-of-rods)
-![last commit](https://flat.badgen.net/github/last-commit/RigsOfRods/rigs-of-rods)
-[![Translations](https://hosted.weblate.org/widgets/rigs-of-rods/-/game/svg-badge.svg)](https://hosted.weblate.org/projects/rigs-of-rods/)
-[![Coverity Scan Status](https://img.shields.io/coverity/scan/16646.svg?style=flat-square)](https://scan.coverity.com/projects/rigsofrods-rigs-of-rods)
-[![Build game](https://github.com/RigsOfRods/rigs-of-rods/workflows/Build%20game/badge.svg)](https://github.com/RigsOfRods/rigs-of-rods/actions?query=workflow%3A%22Build+game%22)
+# Trussline
 
+**A native Android port of the Rigs of Rods soft-body physics simulator** — arm64, Vulkan, touch-first.
 
-![Rigs of Rods](doc/images/RoR_Banner.png)
+> **Independent fork.** Trussline is not affiliated with, endorsed by, or supported by the Rigs of Rods project. Please don't send Trussline issues their way. See [NOTICE](NOTICE) for full attribution.
 
-## Rigs of Rods - open-source, soft-body physics sandbox
+---
 
-**Rigs of Rods (also known as RoR)** is an open-source physics sandbox simulation game that can simulate the motion and deformation of vehicles in real time. Originally started in 2005, it has grown into a flexible and powerful simulation sandbox that supports a wide range of vehicles, physical objects, and environments.
+## Status: pre-alpha, Phase 0
 
-[Community Forums](https://forum.rigsofrods.org/) -
-[Documentation](https://docs.rigsofrods.org/) -
-[Developer Portal](https://developer.rigsofrods.org/) -
-[What's New?](https://forum.rigsofrods.org/forums/announcements.44/)
+Nothing runs on Android yet. The project is in its de-risking phase, and the honest summary is that two questions decide whether it proceeds at all:
 
-## Features
+1. **Can OGRE 14 + Vulkan render acceptably on a low-end phone?** Upstream is on OGRE 1.11.6.1 and still depends on the dead, proprietary, x86-only NVIDIA Cg toolkit — which cannot exist on ARM. Removing it is both a porting task and a licensing obligation.
+2. **Can the 2 kHz node/beam solver fit the CPU budget?** Early signs are good: a source audit found zero SIMD/x86 dependencies, so the math is portable scalar C++. But the thread pool parallelizes per *vehicle*, never within one, so a single vehicle is bound to a single core.
 
-* **Vehicles of all kinds:** cars, trucks, trains, boats, airplanes, helicopters, and heavy machinery
-* **Intuitive  gameplay:** walk around, enter/exit vehicles, spawn multiple at once
-* **Flexible playstyles:** arcade-style keyboard driving to full gamepad, wheel, and pedal setups
-* **Community support:** built-in browser for mods, plus vehicle part swapping and scripting with [AngelScript](https://www.angelcode.com/angelscript/).
-* **Multiplayer support:** dedicated servers, in-game server browser
+Both are answered by bounded spikes before any real investment. If they fail, the fallback is Godot 4 with the solver retained as a native extension — which is why the solver is being isolated behind a C API from day one.
 
-## Getting started
+## Why this fork exists
 
-### Get the game
+Upstream has publicly stated that a mobile port is blocked until the OGRE 14 upgrade lands and Cg is dropped. The deeper reason is instructive: their blocker is not the engine, it's **~15 years of community mods carrying Cg shaders**. A maintainer put it plainly — they agreed shipped shaders could be replaced, but got stuck on shaders in mods.
 
-Ready to drive? Grab the latest version from the **[Rigs of Rods website](https://www.rigsofrods.org/download)**.
+Trussline drops mod compatibility, and with it inherits none of that constraint. That is the entire strategic bet — and it is a real bet, not a free win: the community content library is the single biggest reason anyone plays Rigs of Rods, and a fork legally cannot ship it.
 
-### Build from source
+## Project documents
 
-Read the official guide for compilation instructions on every supported platform.
+This repository is documentation-first on purpose; the planning is the work at this stage.
 
-For detailed instructions on compiling from source, see the **[Guide to building Rigs of Rods](https://github.com/RigsOfRods/rigs-of-rods/wiki)** for Windows and Linux.
+| Document | What it is |
+|---|---|
+| [ROADMAP.md](ROADMAP.md) | Ten dependency-ordered phases with task lists, exit criteria, and gates. No timelines by design |
+| [DECISIONS.md](DECISIONS.md) | What's locked, what's open, and a verification ledger of claims checked against source |
+| [RISKS.md](RISKS.md) | Risk register with mitigations and trigger → contingency pairs |
+| [LEGAL.md](LEGAL.md) | Licensing, trademark, content, and distribution analysis |
+| [AGENTS.md](AGENTS.md) | Working rules for AI assistants — hard constraints and division of labor |
+| [GLOSSARY.md](GLOSSARY.md) | Shared vocabulary |
+| [BUILDING-ANDROID.md](BUILDING-ANDROID.md) | Android build instructions |
+| [PROJECT-PLAN.md](PROJECT-PLAN.md) | Original feasibility research |
 
-## Join the community
+## Building
 
-Rigs of Rods is a community of creators, players, and developers who share a passion for physics simulation. Whether you’re here to play, build, or contribute, you are welcome to be a part of our community.
+**Desktop** (the reference build — Android results are meaningless without it):
 
-* Join the discussion on the [community forums](https://forum.rigsofrods.org/).
-* Chat with other players and developers on the [official Discord server](https://discord.gg/rigsofrods).
+```bash
+cmake . -GNinja -DCMAKE_BUILD_TYPE=Release -Bbuild -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=cmake/conan_provider.cmake -DCMAKE_INSTALL_PREFIX=redist -DCREATE_CONTENT_FOLDER=ON
+```
 
-## Community Mods
+**Android**: see [BUILDING-ANDROID.md](BUILDING-ANDROID.md). Requires NDK 27.3.13750724 and JDK 17.
 
-### Where to get mods (AKA "resources", "content," etc)
+## Target
 
-Rigs of Rods, by default, includes only a small selection of built-in content. Most vehicles, terrains, and other additions are provided as user-generated mods available through the **[official Rigs of Rods repository](https://forum.rigsofrods.org/resources/)**. These community-created assets are separate from the core project and are not covered under the project's license, as they are contributed and licensed by their individual creators. As such, they will never be included with the game by default.
+arm64-v8a, Vulkan, Android 8.0+. No 32-bit, no OpenGL ES path, no iOS — GPLv3 is incompatible with the Apple App Store. Distribution is planned for Google Play plus F-Droid and direct APK.
 
-As of version 2022.04, resources can be installed from within the game itself. **[Read the Guide to Installing Mods](https://docs.rigsofrods.org/gameplay/installing-content/)**.
+## Relationship to upstream
 
-### How to create your own mods
-
-Creating mods for Rigs of Rods can be a challenging yet highly rewarding experience. While it may take time to learn the tools, formats, and techniques involved, the [official documentation](https://docs.rigsofrods.org) provides step-by-step guidance to help you get started. The community is also active and welcoming, through the community forums, community Discord server, and other resources where you can ask questions and share your progress.
-
-## Contributors
-
-<a href="https://github.com/rigsofrods/rigs-of-rods/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=rigsofrods/rigs-of-rods" />
-</a>
-
-For involved authors see [AUTHORS.md](AUTHORS.md).
-
-## Sponsors
-
-<a href="https://www.digitalocean.com/">
-    <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" width="201px">
-</a>
+Trussline tracks [RigsOfRods/rigs-of-rods](https://github.com/RigsOfRods/rigs-of-rods) as a git remote and reads its work freely — it's GPLv3 — but does not depend on upstream landing anything, and makes no commitment to contribute back. Upstream's public work is monitored at every phase boundary so effort isn't duplicated.
 
 ## License
 
-Copyright (c) 2005-2013 Pierre-Michel Ricordel  
-Copyright (c) 2007-2013 Thomas Fischer  
+GPLv3 or later, inherited from upstream and permanent. There is no CLA and the contributor list is admittedly incomplete, so relicensing is not realistically possible. Complete corresponding source is published for every distributed binary.
+
+Copyright (c) 2005-2013 Pierre-Michel Ricordel
+Copyright (c) 2007-2013 Thomas Fischer
 Copyright (c) 2009-2025 Petr Ohlidal and Rigs of Rods contributors
+Copyright (c) 2026 Trussline contributors
 
-Rigs of Rods went open source under GPLv2 or later on the 8th of February, 2009.
+Full text in [COPYING](COPYING). Library licenses in [DEPENDENCIES.md](DEPENDENCIES.md). Upstream authors in [AUTHORS.md](AUTHORS.md).
 
-Rigs of Rods is now licensed under GPLv3 or later:
-```
-Rigs of Rods is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License version 3, as
-published by the Free Software Foundation.
-
-Rigs of Rods is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Rigs of Rods. If not, see <http://www.gnu.org/licenses/>.
-```
-
-For the full license text see [COPYING](COPYING).
-For licenses of used libraries see [DEPENDENCIES.md](DEPENDENCIES.md).
-
+**Content is licensed separately from code.** Community-created Rigs of Rods assets are not covered by this license and are not redistributed here.
