@@ -103,4 +103,16 @@ adb shell pm list features | grep vulkan
 
 ## 6. Emulator builds
 
-The x86_64 emulator is for build and iteration convenience only. It **cannot** validate Vulkan driver behavior, thermal throttling, or frame pacing, so it produces no valid Gate 1 evidence (D-013). Configure the superbuild with `-DTL_ANDROID_ABI=x86_64` and remove the ABI guard locally — the guard exists to stop x86 slipping into a shipping build, not to block deliberate local use.
+The emulator is currently the **primary development target** (D-013 — no physical device is reachable). Configure the superbuild with `-DTL_ANDROID_ABI=x86_64`; it builds and prints a loud warning rather than failing, so an x86 artifact can never be mistaken for a shipping build.
+
+```bash
+cmake -S android/superbuild -B android/superbuild/build-x86 -G Ninja -DCMAKE_BUILD_TYPE=Release -DTL_ANDROID_ABI=x86_64 -DANDROID_NDK="$ANDROID_NDK_HOME"
+```
+
+**What the emulator can and cannot tell you.** It *can* validate that the code builds, that OGRE initializes its Vulkan RenderSystem, that shaders compile, that scenes render correctly, and that the Android lifecycle is handled — which is most of Spike A's functional half. It **cannot** validate Vulkan driver quirks on real GPUs, thermal throttling, frame pacing, or sustained performance. **No Gate 1 evidence may come from it** (D-013); the framerate thresholds are meaningless on host-GPU-backed emulation.
+
+Installed system images: `android-33/35/36/36.1`, all `x86_64`. Available AVD: `Pixel_7_Auto`.
+
+```bash
+emulator -list-avds
+```

@@ -28,11 +28,19 @@ set(TL_ANDROID_ABI "arm64-v8a" CACHE STRING "Target ABI — arm64-v8a only (D-00
 set(TL_ANDROID_API "26" CACHE STRING "Minimum API level (Android 8.0; D-003 prefers 29+)")
 set(TL_SUPERBUILD_OUT "${CMAKE_BINARY_DIR}/out" CACHE PATH "Install prefix for all dependencies")
 
-if(NOT TL_ANDROID_ABI STREQUAL "arm64-v8a")
+# arm64-v8a is the only SHIPPING ABI (D-003). x86_64 is allowed because the
+# emulator is the primary development target while no physical device is
+# reachable (D-013) — but it is loudly marked as non-shippable so an x86 build
+# can never be mistaken for a release artifact. Any other ABI is an error.
+if(TL_ANDROID_ABI STREQUAL "x86_64")
+  message(WARNING
+    "Building for x86_64: EMULATOR/DEVELOPMENT ONLY, never shipped. "
+    "The emulator cannot validate Vulkan driver behavior, thermal throttling, "
+    "or frame pacing, so nothing built here counts as Gate 1 evidence (D-013).")
+elseif(NOT TL_ANDROID_ABI STREQUAL "arm64-v8a")
   message(FATAL_ERROR
-    "TL_ANDROID_ABI is '${TL_ANDROID_ABI}'. Trussline ships arm64-v8a only (D-003). "
-    "x86_64 is permitted for emulator development builds — if that is what you want, "
-    "set it deliberately and remove this guard locally.")
+    "TL_ANDROID_ABI is '${TL_ANDROID_ABI}'. Only arm64-v8a (shipping) and "
+    "x86_64 (emulator development) are supported. See D-003.")
 endif()
 
 if(NOT ANDROID_NDK)

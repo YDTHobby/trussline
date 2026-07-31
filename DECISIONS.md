@@ -109,7 +109,9 @@ Single source of truth for what is **locked**, what is **open**, and what was **
 - Decision: The primary reference device is a **mid-to-low range** Android phone, not the Snapdragon 7-series "midrange" the original plan assumed. Performance budgets are recalibrated accordingly (ROADMAP § Cross-cutting E): entry tier targets 30 fps at **720p-class** render resolution with reduced feature set; the original 1080p/30 midrange target moves up a tier. The x86_64 emulator is available as a secondary target for build/iteration only.
 - Rationale: designing against the actual hardware in hand. A tougher floor is strategically useful — it forces honest budgets early and widens the shippable device range — but it makes Gate 1's Spike A a harsher test than originally scoped.
 - Caveat: **the emulator cannot validate Vulkan driver behavior, thermals, or frame pacing.** Gate 1 evidence must come from physical hardware.
-- Outstanding: identify the exact device (SoC, GPU, Android version, Vulkan driver) once ADB connectivity is fixed, and record it in the device matrix.
+- **Amended 2026-07-31: emulation-first for now.** The reference phone is plugged into another machine and unavailable, so the **x86_64 emulator is the primary development target** until it returns. Installed images: `android-33/35/36/36.1` (x86_64); AVD `Pixel_7_Auto`. The superbuild accepts `TL_ANDROID_ABI=x86_64` with a loud non-shippable warning rather than failing.
+- **What this does and does not unblock.** The emulator validates the *functional* half of Spike A — that OGRE 14 builds, initializes its Vulkan RenderSystem, compiles shaders, renders correctly, and survives the Android lifecycle. That is real de-risking and worth doing now. It validates **none** of the performance half: no Vulkan driver quirks on real GPUs, no thermal throttling, no frame pacing, no sustained framerate. **Gate 1 cannot be closed on emulator evidence** — the framerate thresholds are meaningless against a host GPU.
+- Outstanding: identify the exact device (SoC, GPU, Android version, Vulkan driver) once it is back and ADB connects, and record it in the device matrix.
 - Revisit trigger: acquisition of a higher-tier device, or measurements showing the entry tier is not viable at all (then the floor rises and the device becomes a deny-list case study).
 
 ## D-014: Toolchain pins *(was D-104)*
@@ -154,7 +156,10 @@ Single source of truth for what is **locked**, what is **open**, and what was **
 
 ## D-107: Monetization model
 - Status: OPEN — lock in Phase 9
-- Constraint set: GPLv3 forbids DRM-locked paid downloads; content licensing limits sellable content. Candidates: free + donations, owned cosmetic content, paid hosted servers.
+- **Clarified 2026-07-31 by [LEGAL.md](LEGAL.md):** selling the app is **unambiguously permitted** — GPLv3 expressly allows commercial sale, and RoR has been GPLv3 since its first publication (8 Feb 2009). The constraint is not "may you charge" but "what stays exclusive": anyone who receives a binary may redistribute both it and the source, so paid-app models leak by design. Value has to live in content, convenience, and service — not code secrecy.
+- **Permanently foreclosed:** any closed-source or proprietary-relicensed model. There is no CLA/DCO, the AUTHORS list is admittedly incomplete, and the SVN→Mercurial→Git migration makes authorship unreconstructable — relicensing would need agreement from hundreds of untraceable contributors. If the business model ever requires closed source, the answer is **NO-GO**, not "renegotiate."
+- Also binding: Play's **repetitive-content policy** forbids reuploading someone else's app without adding original value. Mobile UI, curated original content, and mobile optimization are a defensible answer; a near-verbatim reupload is not.
+- Candidates: free + donations · owned original content · paid hosted servers · paid app with source published.
 
 ---
 

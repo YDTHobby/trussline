@@ -114,7 +114,8 @@ Get OGRE 14.x rendering a textured mesh + basic terrain via Vulkan on a real mid
 - [ ] `[AI]` Build OGRE 14.x for arm64-v8a with the NDK CMake toolchain (`android.toolchain.cmake`, `ANDROID_PLATFORM=android-26`+), Vulkan RenderSystem enabled, using OGRE's own Android build path as the template.
 - [ ] `[AI]` Create a minimal GameActivity app shell that initializes OGRE with the Vulkan RenderSystem into a SurfaceView.
 - [ ] `[AI]` Render: clear screen → triangle → textured mesh (an actual RoR-style `.mesh` if feasible) → a basic terrain-like scene with RTSS-generated shaders (no Cg anywhere).
-- [ ] `[HUMAN]` Run on the midrange device; measure frame times with Android GPU Inspector / RenderDoc for Android. Capture numbers, not impressions.
+- [ ] `[AI]` **Emulator pass first (the phone is currently unavailable — D-013).** Build x86_64 and validate the *functional* half on the emulator: OGRE builds, the Vulkan RenderSystem initializes, shaders compile, the scene renders correctly, the lifecycle survives pause/resume. This genuinely de-risks the "does this work at all" question and can proceed today. Record results as functional-only.
+- [ ] `[HUMAN]` Run on the entry-tier device once it is back; measure frame times with Android GPU Inspector / RenderDoc for Android. Capture numbers, not impressions. **Gate 1 cannot close without this** — emulator framerates are meaningless against a host GPU.
 - [ ] `[HUMAN]` Run on every GPU family available in the device pool; log driver bugs/workarounds per device (this log seeds the allow/deny list).
 - [ ] `[AI]` If OGRE 14.x results are poor: repeat the minimal scene with **ogre-next (2.3+) + Vulkan** as the comparison point before concluding anything.
 - [ ] `[HUMAN]` Basic lifecycle sanity within the spike: surface loss on `onPause`/rotation, resource recreation on resume — confirm the OGRE Vulkan path can survive Android lifecycle at all.
@@ -228,7 +229,7 @@ RoR's Conan setup targets desktop; Android cross-compiles are not provided upstr
 
 - [ ] `[AI]` Wire OGRE's resource/archive system (zip via zziplib) to real Android filesystem paths (app-specific internal storage).
 - [ ] `[AI]` Interim asset delivery for development: a first-run copy step that extracts bundled test content from APK assets (via AAssetManager) to internal storage, so OGRE's existing path-based archive code works unchanged. (Play Asset Delivery replaces this in Phase 9; keep the seam clean.)
-- [ ] `[AI]` Select and package a minimal license-clean test content set from RoR's GPLv3 base content: one terrain, one or two vehicles. **No community mods** — see licensing track.
+- [ ] `[AI]` Select and package a minimal license-clean test content set from RoR's GPLv3 base content: one terrain, one or two vehicles. **No community mods** — see licensing track. ⚠️ **Know the real size of this pool: it is three assets.** `agora`, `dafsemi`, and `simple2-terrain` in `RigsOfRods/content` are the *only* cleanly GPL-licensed content; maintainers state everything else has "no license what-so-ever" and some carries real-world logos ([LEGAL.md](LEGAL.md) A4, corroborated by V-6 finding exactly 3 `.material` files in the submodule). That is enough to bring up rendering and physics, and nowhere near enough to ship — see R-21.
 
 ### 3.2 Material audit & Cg elimination
 
@@ -293,6 +294,7 @@ Work through this strictly in order — each step isolates a different failure d
 
 - [ ] `[HUMAN]` Establish the measurement harness first: Perfetto traces (CPU/thread/thermal), Swappy frame stats, on-screen frame-time graph. No tuning without measurement.
 - [ ] `[AI]` Substep budget tuning per device tier (keep the 0.0005 s timestep semantics — see AGENTS.md hard constraints; tuning means scheduling/batching, not changing the integrator).
+- [ ] `[AI]` **Powertrain sub-sim rate — a real, unexploited CPU lever.** The powertrain runs at up to 2 kHz, but RoR's lead maintainer has noted **200–400 Hz may suffice** ([LEGAL.md](LEGAL.md) B5). That's potentially a 5–10× cut on that sub-sim, which matters most exactly where we're weakest (entry-tier single-core, R-18). ⚠️ **This is the powertrain sub-sim, not the node/beam solver** — the solver's 0.0005 s fixed step remains untouchable (AGENTS.md constraint #4). Do not conflate them; verify the distinction in source before changing anything.
 - [ ] `[AI]` Reduce per-substep synchronization overhead: `ThreadPool::Parallelize` (`ThreadPool.h:193-211`) is a fork-join barrier with no work-stealing or spin phase, so at 2 kHz it pays a lot of `condition_variable` round-trips. Measure before assuming it matters, but it's the obvious first structural target.
 - [ ] `[AI]` Clamp `m_physics_steps` if Phase 1 confirmed no upper bound exists — an unbounded substep burst after a long frame is a real hazard on mobile, where the OS pauses your process routinely.
 - [ ] `[AI]` NEON vectorization of the hot force loops identified in Spike B — measured before/after, revert anything that doesn't pay.
