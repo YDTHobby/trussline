@@ -10,7 +10,10 @@ plugins {
 // way, so this proves the same thing with one less external dependency.
 // GameActivity remains the product choice (D-004) and lands in Phase 2.3.
 
-def ogreInstall = "${rootDir}/../install-x86_64"
+// ABI is selectable so the shipping target and the emulator target come from
+// one project:  gradle :app:assembleDebug -PtrusslineAbi=arm64-v8a
+def targetAbi = project.findProperty('trusslineAbi') ?: 'x86_64'
+def ogreInstall = "${rootDir}/../install-${targetAbi}"
 
 android {
     namespace 'org.trussline.spikea'
@@ -25,8 +28,9 @@ android {
         versionName "0.1"
 
         ndk {
-            // Emulator target while the reference phone is unavailable (D-013).
-            abiFilters 'x86_64'
+            // x86_64 for the emulator while the reference phone is unavailable
+            // (D-013); arm64-v8a is the only SHIPPING ABI (D-003).
+            abiFilters targetAbi
         }
 
         externalNativeBuild {

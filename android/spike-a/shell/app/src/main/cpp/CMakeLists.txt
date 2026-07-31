@@ -18,6 +18,15 @@ add_library(native_app_glue STATIC
 target_include_directories(native_app_glue PUBLIC
     ${ANDROID_NDK}/sources/android/native_app_glue)
 
+# cpufeatures - also NDK source, not prebuilt. OGRE calls android_getCpuFamily()
+# and android_getCpuFeatures() for ARM CPU detection, so this is required on
+# arm64 and is silently unnecessary on x86_64. Omitting it fails only on the
+# SHIPPING ABI, which is a good argument for building both.
+add_library(cpufeatures STATIC
+    ${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c)
+target_include_directories(cpufeatures PUBLIC
+    ${ANDROID_NDK}/sources/android/cpufeatures)
+
 add_library(spikea SHARED main.cpp)
 
 # shaderc, for RTSS -> SPIR-V. OGRE's Plugin_GLSLangProgramManager imported
@@ -59,6 +68,7 @@ target_link_libraries(spikea PRIVATE
 target_link_libraries(spikea
     PRIVATE
         native_app_glue
+        cpufeatures
         OgreMain
         OgreRTShaderSystem
         Plugin_GLSLangProgramManager
