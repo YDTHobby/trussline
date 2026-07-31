@@ -28,7 +28,18 @@
 #include <cstdint>
 #include <cstring>
 
-static int mirand = 1;
+/// PRNG state for frand()/frand_02()/frand_11().
+///
+/// thread_local, not plain static: these are called from inside the
+/// per-actor force tasks that ActorManager dispatches across the thread pool,
+/// so a shared counter is a data race on the solver's hot path. ARM's weaker
+/// memory model would interleave it differently from x86, which is a poor
+/// property for a physics comparison to depend on.
+///
+/// unsigned, not int: the `mirand *= 16807` below overflows by design, and
+/// signed overflow is undefined behaviour. Unsigned wraparound is defined and
+/// produces the identical bit pattern, so the generated sequence is unchanged.
+static thread_local uint32_t mirand = 1;
 
 /// Reinterpret a bit pattern as float, and back.
 ///
@@ -64,7 +75,7 @@ inline float frand()
 {
     mirand *= 16807;
 
-    const uint32_t a = (static_cast<uint32_t>(mirand) & 0x007fffffu) | 0x40000000u;
+    const uint32_t a = (mirand & 0x007fffffu) | 0x40000000u;
 
     return (bit_cast_to_float(a) - 2.0f) * 0.5f;
 }
@@ -74,7 +85,7 @@ inline float frand_02()
 {
     mirand *= 16807;
 
-    const uint32_t a = (static_cast<uint32_t>(mirand) & 0x007fffffu) | 0x40000000u;
+    const uint32_t a = (mirand & 0x007fffffu) | 0x40000000u;
 
     return bit_cast_to_float(a) - 2.0f;
 }
@@ -84,7 +95,7 @@ inline float frand_11()
 {
     mirand *= 16807;
 
-    const uint32_t a = (static_cast<uint32_t>(mirand) & 0x007fffffu) | 0x40000000u;
+    const uint32_t a = (mirand & 0x007fffffu) | 0x40000000u;
 
     return bit_cast_to_float(a) - 3.0f;
 }

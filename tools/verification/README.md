@@ -23,3 +23,24 @@ Coverage: `fast_invSqrt`, `approx_invSqrt`, `approx_sqrt`, `approx_pow2`, `appro
 It proves the desktop reference build's behaviour is unchanged by the fix — which is what ROADMAP § 1.2 Step 1 requires, and why the fix is done on x86 *before* ARM exists to confound results.
 
 It cannot prove equivalence in general, because the old code was undefined behaviour: a compiler is entitled to do something different tomorrow, on another target, or at another optimisation level. That is precisely the reason to remove it rather than rely on it continuing to work.
+
+## `mirand_diff.cpp` — R-16 step 2, the PRNG state change
+
+`ApproxMath.h`'s PRNG state was a plain `static int mirand`, mutated by `frand()` / `frand_02()` / `frand_11()`. Two defects:
+
+- **Data race.** `frand_11()` is called from `ActorForcesEuler.cpp:1671`, inside the per-actor force tasks that `ActorManager` dispatches across the thread pool. A shared counter mutated without synchronisation is a race on the solver's hot path — one that predates this port and affects every platform. ARM's weaker memory model would interleave it differently from x86, which is a bad property for a physics comparison to rest on.
+- **Signed overflow.** `mirand *= 16807` overflows by design; on a signed int that is undefined behaviour.
+
+Fixed by making it `static thread_local uint32_t`.
+
+This test verifies the type change alone is sequence-preserving: it runs the signed and unsigned forms side by side from an identical seed and compares both the emitted floats and the raw state.
+
+**Result on the reference toolchain (MSVC 19.44, 2026-07-31): 60,000,000 comparisons, 0 mismatches, raw state identical.**
+
+### Scope of that claim
+
+Sequence-identical is a claim about the *type change*, and it holds: unsigned wraparound reproduces the same bit pattern that two's-complement signed overflow produced in practice.
+
+`thread_local` is a genuine behavioural change and is deliberately not covered here. Previously all threads shared one counter and raced for it; now each thread draws its own sequence from seed 1. Single-threaded behaviour is unchanged. Multi-threaded turbulence noise differs — it is *supposed* to, because the old interleaving was undefined. Do not treat pre-fix and post-fix multi-actor runs as comparable.
+
+One thing to measure rather than assume: `thread_local` access carries a small TLS lookup cost, and `frand_11()` runs per node per substep at 2 kHz. The state is constant-initialised so there should be no guard-variable check, but this belongs in the Phase 4 profiling pass (see R-18 on single-core headroom).
