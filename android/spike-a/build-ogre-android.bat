@@ -9,7 +9,9 @@ REM produce no Gate 1 evidence.
 
 setlocal
 
-set "TL_ABI=x86_64"
+REM ABI is arg 1, defaulting to x86_64. Pass arm64-v8a for the shipping ABI.
+set "TL_ABI=%~1"
+if "%TL_ABI%"=="" set "TL_ABI=x86_64"
 set "TL_API=29"
 set "NDK=C:\Users\nico1\AppData\Local\Android\Sdk\ndk\27.3.13750724"
 set "SRC=C:\Users\nico1\Desktop\Rigs Port\spike-a\ogre"
