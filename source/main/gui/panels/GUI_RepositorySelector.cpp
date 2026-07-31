@@ -113,13 +113,38 @@ static size_t CurlOgreDataStreamWriteFunc(char* data_ptr, size_t _unused, size_t
     }
 }
 
+/// Trussline ships no mod repository yet, and must not query the upstream Rigs of
+/// Rods servers: it is an independent fork, and the content hosted there is
+/// community-licensed material this project has no right to redistribute
+/// (LEGAL.md A4, RISKS.md R-21). The `remote_query_url` CVar therefore defaults to
+/// empty and every network path here is gated on it. Point it at a host and the
+/// browser works again - the feature is gated, not deleted. Phase 8 repoints it at
+/// our own repository.
+static bool RepositoryEndpointConfigured(const std::string& portal_url)
+{
+    if (!portal_url.empty())
+    {
+        return true;
+    }
+
+    Ogre::LogManager::getSingleton().stream()
+        << "[Trussline|Repository] No repository endpoint configured; skipping request."
+        << " Set the 'remote_query_url' CVar to enable the mod browser.";
+    return false;
+}
+
 std::vector<GUI::ResourceCategories> GetResourceCategories(std::string portal_url)
 {
+    if (!RepositoryEndpointConfigured(portal_url))
+    {
+        return std::vector<GUI::ResourceCategories>();
+    }
+
     std::string repolist_url = portal_url + "/resource-categories";
     std::string response_payload;
     std::string response_header;
     long response_code = 0;
-    std::string user_agent = fmt::format("{}/{}", "Rigs of Rods Client", ROR_VERSION_STRING);
+    std::string user_agent = fmt::format("{}/{}", "Trussline Client", ROR_VERSION_STRING);
 
     // The CURL* handle is not multithreaded, see https://curl.se/libcurl/c/threadsafe.html
     // For simplicity we avoid any reuse during OGRE14 migration.
@@ -172,11 +197,19 @@ std::vector<GUI::ResourceCategories> GetResourceCategories(std::string portal_ur
 
 void GetResources(std::string portal_url)
 {
+    if (!RepositoryEndpointConfigured(portal_url))
+    {
+        App::GetGameContext()->PushMessage(
+                Message(MSG_NET_REFRESH_REPOLIST_FAILURE,
+                        _LC("RepositorySelector", "No mod repository is configured for this build.")));
+        return;
+    }
+
     std::string repolist_url = portal_url + "/resources";
     std::string response_payload;
     std::string response_header;
     long response_code = 0;
-    std::string user_agent = fmt::format("{}/{}", "Rigs of Rods Client", ROR_VERSION_STRING);
+    std::string user_agent = fmt::format("{}/{}", "Trussline Client", ROR_VERSION_STRING);
 
     CURL *curl = curl_easy_init();
     curl_easy_setopt(curl, CURLOPT_URL, repolist_url.c_str());
@@ -261,9 +294,14 @@ void GetResources(std::string portal_url)
 
 void GetResourceFiles(std::string portal_url, int resource_id)
 {
+    if (!RepositoryEndpointConfigured(portal_url))
+    {
+        return;
+    }
+
     std::string response_payload;
     std::string resource_url = portal_url + "/resources/" + std::to_string(resource_id);
-    std::string user_agent = fmt::format("{}/{}", "Rigs of Rods Client", ROR_VERSION_STRING);
+    std::string user_agent = fmt::format("{}/{}", "Trussline Client", ROR_VERSION_STRING);
     long response_code = 0;
 
     CURL *curl = curl_easy_init();
@@ -326,6 +364,20 @@ void GetResourceFiles(std::string portal_url, int resource_id)
 
 void DownloadResourceFile(RepoFileInstallRequest request)
 {
+    // Gated on the same CVar as the browse paths above.
+    //
+    // Note the download host below is hardcoded to upstream's forum and is NOT
+    // derived from `remote_query_url` - so re-pointing that CVar at your own API
+    // would still pull files from them. Phase 8 must make this host configurable
+    // alongside the API endpoint; until then the gate is what keeps us off their
+    // servers.
+    if (!RepositoryEndpointConfigured(App::remote_query_url->getStr()))
+    {
+        App::GetGameContext()->PushMessage(
+                Message(MSG_NET_DOWNLOAD_REPOFILE_FAILURE, (void*)new RepoFileInstallRequest(request)));
+        return;
+    }
+
     RoR::Message m(MSG_NET_DOWNLOAD_REPOFILE_PROGRESS);
     int perc = 0;
     m.payload = reinterpret_cast<void*>(new int(perc));

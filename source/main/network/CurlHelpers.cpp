@@ -71,7 +71,9 @@ static size_t CurlProgressFunc(void* ptr, double filesize_B, double downloaded_B
 bool RoR::GetUrlAsString(const std::string& url, CURLcode& curl_result, long& response_code, std::string& response_payload)
 {
     std::string response_header;
-    std::string user_agent = fmt::format("{}/{}", "Rigs of Rods Client", ROR_VERSION_STRING);
+    // Identify as ourselves. Sending "Rigs of Rods Client" would misrepresent an
+    // independent fork as the upstream project to whatever server we call.
+    std::string user_agent = fmt::format("{}/{}", "Trussline Client", ROR_VERSION_STRING);
 
     CURL *curl = curl_easy_init();
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());

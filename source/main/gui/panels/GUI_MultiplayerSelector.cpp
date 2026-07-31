@@ -59,6 +59,27 @@ size_t CurlWriteFunc(void *ptr, size_t size, size_t nmemb, std::string* data)
 
 void FetchServerlist(std::string portal_url)
 {
+    // `mp_api_url` defaults to empty: Trussline replaces the RoRnet transport
+    // outright (DECISIONS.md D-007) and so is not protocol-compatible with
+    // upstream's servers - listing them would be misleading as well as impolite.
+    // Phase 7 points this at our own serverlist. Report it as unconfigured rather
+    // than letting curl fail on a malformed URL and blaming the user's connection.
+    if (portal_url.empty())
+    {
+        Ogre::LogManager::getSingleton().stream()
+            << "[Trussline|Multiplayer] No serverlist endpoint configured; skipping request."
+            << " Set the 'mp_api_url' CVar to enable the server browser.";
+
+        CurlFailInfo* failinfo = new CurlFailInfo();
+        failinfo->title = _LC("MultiplayerSelector", "No server list is configured for this build.");
+        failinfo->curl_result = CURLE_OK;
+        failinfo->http_response = 0;
+
+        App::GetGameContext()->PushMessage(
+            Message(MSG_NET_REFRESH_SERVERLIST_FAILURE, failinfo));
+        return;
+    }
+
     std::string serverlist_url = portal_url + "/server-list?json=true";
     std::string response_payload;
     std::string response_header;

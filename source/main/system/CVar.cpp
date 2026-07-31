@@ -72,10 +72,21 @@ void Console::cVarSetupBuiltins()
     App::mp_server_password      = this->cVarCreate("mp_server_password",      "Server password",            CVAR_ARCHIVE | CVAR_NO_LOG);
     App::mp_player_name          = this->cVarCreate("mp_player_name",          "Nickname",                   CVAR_ARCHIVE,                     "Player");
     App::mp_player_token         = this->cVarCreate("mp_player_token",         "User Token",                 CVAR_ARCHIVE | CVAR_NO_LOG);
-    App::mp_api_url              = this->cVarCreate("mp_api_url",              "Online API URL",             CVAR_ARCHIVE,                     "http://api.rigsofrods.org");
+    // Default intentionally empty. This pointed at the upstream Rigs of Rods
+    // serverlist. Trussline is an independent fork replacing the RoRnet transport
+    // outright (see DECISIONS.md D-007), so it is not protocol-compatible with
+    // those servers - querying them would be both useless and impolite. Repointed
+    // at our own serverlist in Phase 7. Users may still set this CVar manually.
+    App::mp_api_url              = this->cVarCreate("mp_api_url",              "Online API URL",             CVAR_ARCHIVE,                     "");
     App::mp_cyclethru_net_actors = this->cVarCreate("mp_cyclethru_net_actors", "",                           CVAR_ARCHIVE | CVAR_TYPE_BOOL,    "false");
 
-    App::remote_query_url        = this->cVarCreate("remote_query_url",        "",                           CVAR_ARCHIVE,                     "https://v2.api.rigsofrods.org");
+    // Default intentionally empty. This pointed at the upstream Rigs of Rods mod
+    // repository. Two reasons a fork must not call it: it is their infrastructure,
+    // and the content it serves is community-licensed material this project has no
+    // right to redistribute (LEGAL.md A4, RISKS.md R-21). Repointed at our own
+    // repository in Phase 8. Setting this CVar re-enables the browser against
+    // whatever host you choose - the feature is gated, not removed.
+    App::remote_query_url        = this->cVarCreate("remote_query_url",        "",                           CVAR_ARCHIVE,                     "");
 
     App::diag_auto_spawner_report= this->cVarCreate("diag_auto_spawner_report","AutoActorSpawnerReport",     CVAR_ARCHIVE | CVAR_TYPE_BOOL,    "false");
     App::diag_camera             = this->cVarCreate("diag_camera",             "Camera Debug",               CVAR_ARCHIVE | CVAR_TYPE_BOOL,    "false");
