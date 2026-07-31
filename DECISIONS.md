@@ -120,10 +120,10 @@ Single source of truth for what is **locked**, what is **open**, and what was **
   - ⚠️ The CI workflow uses `nttld/setup-ndk`, which takes `rNNx`-style names. The mapping from `27.3.13750724` to its r-name is **unconfirmed** — verify before the Android CI job goes blocking (Phase 2.4).
 - **Conan: 2.31.1** — installed via pip (user site).
 - **Already present and adequate:** git 2.51.2 · CMake 3.29.2 (meets the superbuild's 3.24 floor) · Ninja · Python 3.13.5 · Android Studio · Android SDK with platforms 30/35/36, build-tools to 36.1.0, cmdline-tools `latest` · ADB (note: two copies exist, `C:\platform-tools` and the SDK's — harmless, but pin one on PATH).
-- **MISSING — blocks work, human action required:**
-  1. **JDK 17.** The installed Java is a **JRE, version 8** (`javac` absent, `JAVA_HOME` → `jre-8.0.452`). Current AGP requires JDK 17; Gradle will fail until this is fixed. Android Studio's bundled JBR (`C:\Program Files\Android\Android Studio\jbr`) works for `sdkmanager` and is what the install used, but a real JDK 17 should own `JAVA_HOME`.
-  2. **MSVC / Visual Studio Build Tools with the C++ workload.** `cl` and `msbuild` are both absent, so the Windows desktop build cannot run. This is not optional: ROADMAP § 2.0 does the OGRE 1.11→14 upgrade **desktop-first** precisely so breakage is debuggable against a known-good reference. Without a desktop build, every Android failure is unattributable.
-- `ANDROID_HOME` / `ANDROID_NDK_HOME` are unset — set them, or pass `-DANDROID_NDK=` explicitly as BUILDING-ANDROID.md documents.
+- **JDK: `17.0.20` (Temurin)** — installed 2026-07-31. ⚠️ The installer left `JAVA_HOME` pointing at the old **JRE 8**; corrected to `C:\Program Files\Eclipse Adoptium\jdk-17.0.20.8-hotspot` at User scope. Both runtimes remain on disk — if Gradle ever reports a Java 8 toolchain, this regressed.
+- **MSVC: Visual Studio Build Tools 2022, v17.14.37516.0** — verified to carry the `VC.Tools.x86.x64` component. Two other installs exist and should **not** be used: Build Tools 2019 (16.11, also has VC++ but is older than upstream's CI baseline) and Visual Studio Community 2026 (18.7, which does *not* carry the VC++ toolset). Pin 2022 so local and CI toolsets match — upstream's own CI builds on MSVC 2022.
+- **Environment variables set (User scope, 2026-07-31):** `JAVA_HOME` → JDK 17 · `ANDROID_HOME` → `%LOCALAPPDATA%\Android\Sdk` · `ANDROID_NDK_HOME` → the pinned NDK. New shells pick these up; existing ones need a restart.
+- **Still outstanding:** ADB cannot see the phone (see ROADMAP § 0.3) — this is the only remaining Phase 0 blocker, and it gates all Gate 1 evidence.
 
 ---
 

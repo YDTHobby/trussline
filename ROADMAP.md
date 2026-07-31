@@ -67,19 +67,19 @@ The entire plan assumes the OGRE 1.9→14 upgrade and Cg removal are *incomplete
 
 - [x] `[HUMAN]` Choose a distinct project name and working title. *(**Trussline** — D-011. GitHub org name free, no trademark conflicts in software/game classes.)*
 - [x] `[AI]` Clone upstream history locally. *(`trussline/` — full history at upstream HEAD `7e38912d2`, 2026-07-24, 397 MB. `origin` renamed to `upstream`; strategy is a fresh repo with upstream as a remote, not a GitHub fork.)*
-- [ ] 🔴 `[AI/HUMAN]` **Create the `YDTHobby/trussline` remote and push.** The `gh repo create` call was **blocked by the permission classifier** — creating a public repo under your identity needs your go-ahead. Then: `git remote add origin …` and `git push -u origin master`.
+- [x] `[AI/HUMAN]` **Create the `YDTHobby/trussline` remote and push.** *(Repo created public at https://github.com/YDTHobby/trussline; `origin` added, Phase 0 commit `e93a5e628` pushed with full upstream history.)*
 - [ ] `[AI]` Retain `LICENSE` (GPLv3) unchanged; add a `NOTICE`/attribution section crediting the upstream project prominently.
 - [ ] `[AI]` Audit and replace branding strings/assets (window titles, about screens, icons) — defer polished art, but remove upstream marks.
-- [ ] `[AI]` **Resolve the CI overlap before first push:** upstream's `build-game.yml` and `linux-native.yml` now sit alongside our `desktop-build.yml`. Ours was written to *replace* `build-game.yml`, so keeping both is redundant — delete or disable upstream's. (Upstream's itch.io publish step is inert without the secret, so this is tidiness, not risk.)
+- [x] `[AI]` **Resolve the CI overlap.** *(Commit `c5751b1b7`. The hand-written `desktop-build.yml` had a placeholder Conan URL and a guessed apt list — it could never have gone green — so it was replaced wholesale by an adaptation of upstream's proven `build-game.yml`, and `build-game.yml` deleted as superseded. `linux-native.yml` was **kept** but switched to manual trigger: it builds every dependency from source with explicit CMake flags, making it the desktop reference for `android/superbuild`. Its OGRE flags independently confirmed `OGRE_RESOURCEMANAGER_STRICT=0`.)*
 - [ ] `[AI]` Replace upstream's `README.md` with a Trussline one. *(Left untouched deliberately — overwriting it is rebranding work, not a file copy.)*
 - [x] `[AI]` Import the document set into the repo root. *(`ROADMAP.md`, `AGENTS.md`, `DECISIONS.md`, `RISKS.md`, `GLOSSARY.md`, `PROJECT-PLAN.md`, `BUILDING-ANDROID.md`, plus `android/superbuild/CMakeLists.txt` and `android/solver-api-sketch.h`.)*
 
 ### 0.3 Development environment
 
 - [x] `[HUMAN]` Install Android Studio, Android SDK, NDK, CMake, JDK. *(Audited 2026-07-31 — Studio, SDK, CMake 3.29.2, Ninja, git, Python, ADB all present. **NDK `27.3.13750724` installed and pinned (D-014)**; Conan 2.31.1 installed.)*
-- [ ] 🔴 `[HUMAN]` **Install JDK 17.** The current Java is a **JRE 8** — `javac` is absent and `JAVA_HOME` points at it. Gradle will fail until fixed.
-- [ ] 🔴 `[HUMAN]` **Install Visual Studio Build Tools (C++ workload).** `cl`/`msbuild` are absent, so there is no Windows desktop build — and § 2.0 depends on a working desktop reference to make OGRE-upgrade breakage attributable.
-- [ ] `[HUMAN]` Set up the desktop build environment (existing RoR Conan/CMake path) and confirm a clean desktop build of the unmodified fork. *(Blocked on MSVC above.)*
+- [x] `[HUMAN]` **Install JDK 17.** *(Temurin 17.0.20 installed; `JAVA_HOME` corrected from the stale JRE 8 to the JDK. `ANDROID_HOME` and `ANDROID_NDK_HOME` also set — D-014.)*
+- [x] `[HUMAN]` **Install Visual Studio Build Tools (C++ workload).** *(VS Build Tools 2022 v17.14 verified to carry the VC++ toolset. Use it, not the 2019 install also present; VS Community 2026 lacks VC++ entirely.)*
+- [ ] `[AI]` Set up the desktop build environment (Conan profile + RoR's CMake path) and confirm a clean desktop build. **This is the next real task** — it establishes the reference behavior § 2.0 measures the OGRE upgrade against.
 - [x] `[HUMAN]` Assemble the physical device pool. *(One mid-to-low range device in hand — becomes the entry-tier reference, D-013. Adding a flagship later would widen coverage but is not blocking.)*
 - [ ] 🔴 `[HUMAN]` **BLOCKER — restore ADB connectivity.** `adb devices` reports nothing and Windows shows no Android USB device (checked 2026-07-31; ADB itself is fine at `C:\platform-tools\adb.exe`). Until this is fixed there is no device identification, no on-device testing, and no valid Gate 1 evidence. Troubleshooting sequence in `fork-scaffold/BUILDING-ANDROID.md` § 5 — most likely causes, cheapest first: USB mode set to charging-only, USB debugging not enabled, unaccepted RSA prompt, charge-only cable, missing OEM driver.
 - [ ] `[AI]` Once connected: capture SoC, GPU family, Android version, Vulkan driver version, core topology, and RAM into the device matrix (D-013 leaves the model TBD).
@@ -87,7 +87,7 @@ The entire plan assumes the OGRE 1.9→14 upgrade and Cg removal are *incomplete
 
 ### 0.4 Continuous integration
 
-- [ ] `[AI]` Stand up CI (GitHub Actions): desktop build job on every push — the desktop build must never silently break while Android work proceeds. *(Workflow written: `fork-scaffold/.github/workflows/desktop-build.yml`; needs the fork + real Conan remote URL to go live.)*
+- [x] `[AI]` Stand up CI (GitHub Actions): desktop build job on every push — the desktop build must never silently break while Android work proceeds. *(Live at [YDTHobby/trussline](https://github.com/YDTHobby/trussline/actions); all three workflows registered and active. **Note:** pushes did not auto-trigger runs on this fresh repo, which is why `workflow_dispatch` was added to both active workflows — first run was dispatched manually. Watch whether subsequent pushes trigger normally.)*
 - [ ] `[AI]` Add code formatting/lint checks consistent with upstream style.
 - [ ] `[AI]` Prepare (but don't require yet) an Android cross-compile job skeleton; it becomes mandatory in Phase 2. *(Written: `fork-scaffold/.github/workflows/android-build.yml`, non-blocking until Phase 2.4.)*
 - [ ] `[AI]` Set up build caching (Conan cache / ccache) to keep CI turnaround tolerable. *(Conan cache keyed on `conanfile.py`, superbuild cache keyed on `android/superbuild/**` — both in the scaffolded workflows.)*
