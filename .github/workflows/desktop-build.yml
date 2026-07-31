@@ -1,0 +1,128 @@
+# Trussline — desktop build gate.
+#
+# Purpose: enforce the "desktop build stays green" hard constraint (AGENTS.md #6).
+# The desktop build is the reference behavior every Android result is compared
+# against — if it breaks, Android failures become unattributable.
+#
+# Shape follows upstream's build-game.yml (Conan 2 + Ninja + CMake).
+# TODO(fork): copy the exact Conan remote URL from upstream's workflow before first run.
+
+name: Desktop build
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CONAN_REMOTE_NAME: ror-deps
+  # TODO(fork): real URL — see upstream .github/workflows/build-game.yml
+  CONAN_REMOTE_URL: https://REPLACE-ME.invalid/conan
+
+jobs:
+  linux:
+    # The cheap gate — runs first, catches most breakage.
+    name: Linux (ubuntu-22.04)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build libgl1-mesa-dev libx11-dev libxaw7-dev libxrandr-dev \
+            libfreetype-dev libfreeimage-dev libzzip-dev libpython3-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Conan
+        run: |
+          pip install --upgrade "conan>=2.0"
+          conan profile detect --force
+          conan remote add "$CONAN_REMOTE_NAME" "$CONAN_REMOTE_URL" --force
+
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-linux-${{ hashFiles('conanfile.py') }}
+          restore-keys: conan-linux-
+
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=cmake/conan_provider.cmake \
+            -DCMAKE_INSTALL_PREFIX=redist
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Install
+        run: cmake --install build
+
+      - name: Trim Conan cache
+        if: always()
+        run: conan cache clean "*" -sbd
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trussline-linux
+          path: redist
+
+  windows:
+    # Matches the primary development machine — keep it, even though it costs more minutes.
+    name: Windows (windows-2025)
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Conan
+        run: |
+          pip install --upgrade "conan>=2.0"
+          conan profile detect --force
+          conan remote add $env:CONAN_REMOTE_NAME $env:CONAN_REMOTE_URL --force
+
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-windows-${{ hashFiles('conanfile.py') }}
+          restore-keys: conan-windows-
+
+      - name: Configure
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=cmake/conan_provider.cmake
+          -DCMAKE_INSTALL_PREFIX=redist
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Install
+        run: cmake --install build
+
+      - name: Trim Conan cache
+        if: always()
+        run: conan cache clean "*" -sbd
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trussline-win
+          path: redist
+
+# Deliberately NOT carried over from upstream: the itch.io Butler publish step.
+# Distribution is Phase 9 and Android-only (Play + F-Droid + direct APK) — see D-008.

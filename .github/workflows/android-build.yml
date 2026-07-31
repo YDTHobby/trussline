@@ -1,0 +1,91 @@
+# Trussline — Android arm64 cross-compile.
+#
+# Phase 0.4: exists but NON-BLOCKING (continue-on-error) — nothing builds for
+# Android yet, and a permanently red gate trains you to ignore CI.
+# Phase 2.4: flip `continue-on-error` to false. This is a roadmap exit criterion.
+#
+# Targets arm64-v8a only (D-003). No armeabi-v7a, no GLES path.
+
+name: Android build
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned NDK is sdkmanager package `ndk;27.3.13750724` (r27 LTS, latest patch) — D-014.
+  # TODO(fork): setup-ndk takes rNN-style names; CONFIRM which r-name maps to
+  # 27.3.13750724 before this job becomes blocking in Phase 2.4. A mismatch here
+  # means CI silently builds against a different toolchain than the local build.
+  NDK_VERSION: r27c
+  ANDROID_API_LEVEL: '26'
+  ANDROID_ABI: arm64-v8a
+
+jobs:
+  android-arm64:
+    name: arm64-v8a (Vulkan)
+    runs-on: ubuntu-22.04
+    # TODO(Phase 2.4): remove this line to make the Android build a blocking gate.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+          local-cache: true
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build
+
+      # The superbuild is expensive (OGRE especially). Cache it aggressively or
+      # every push pays the full dependency build cost.
+      - name: Cache dependency superbuild
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: android/superbuild/out
+          key: android-deps-${{ env.ANDROID_ABI }}-${{ env.NDK_VERSION }}-${{ hashFiles('android/superbuild/**') }}
+
+      - name: Build dependencies (arm64)
+        if: steps.deps-cache.outputs.cache-hit != 'true'
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          cmake -S android/superbuild -B android/superbuild/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DANDROID_NDK="$ANDROID_NDK_HOME" \
+            -DTL_ANDROID_ABI="$ANDROID_ABI" \
+            -DTL_ANDROID_API=${{ env.ANDROID_API_LEVEL }} \
+            -DTL_SUPERBUILD_OUT=android/superbuild/out
+          cmake --build android/superbuild/build --parallel
+
+      - name: Build APK
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        # TODO(Phase 2.3): real Gradle project path once the GameActivity shell exists.
+        run: |
+          echo "TODO(fork): ./gradlew :app:assembleDebug"
+          echo "Placeholder — no Gradle project until Phase 2.3."
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: trussline-android-arm64
+          path: |
+            **/build/outputs/apk/**/*.apk
+          if-no-files-found: ignore
