@@ -1,0 +1,66 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Spike A shell. Throwaway by design (ROADMAP 1.1) - the deliverable is the
+// answer to "does OGRE 14 + Vulkan render on Android", not this code.
+//
+// Uses NativeActivity + the NDK's bundled native_app_glue rather than
+// GameActivity. The ANativeWindow contract OGRE consumes is identical either
+// way, so this proves the same thing with one less external dependency.
+// GameActivity remains the product choice (D-004) and lands in Phase 2.3.
+
+def ogreInstall = "${rootDir}/../install-x86_64"
+
+android {
+    namespace 'org.trussline.spikea'
+    compileSdk 35
+    ndkVersion '27.3.13750724'
+
+    defaultConfig {
+        applicationId "org.trussline.spikea"
+        minSdk 29
+        targetSdk 35
+        versionCode 1
+        versionName "0.1"
+
+        ndk {
+            // Emulator target while the reference phone is unavailable (D-013).
+            abiFilters 'x86_64'
+        }
+
+        externalNativeBuild {
+            cmake {
+                // CMAKE_PREFIX_PATH alone is NOT enough when cross-compiling:
+                // android.toolchain.cmake sets CMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY,
+                // which confines find_package to the NDK sysroot and makes it ignore
+                // any prefix outside it. Hence both the explicit OGRE_DIR (which
+                // bypasses the search entirely) and relaxing the mode to BOTH.
+                arguments "-DCMAKE_PREFIX_PATH=${ogreInstall}",
+                          "-DOGRE_DIR=${ogreInstall}/lib/OGRE/cmake",
+                          "-DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH",
+                          "-DANDROID_STL=c++_shared"
+                cppFlags "-std=c++17"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            jniDebuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
