@@ -64,17 +64,16 @@ namespace RoR {
         int rfir_filesize_bytes = 0; // For display only
     };
 
-    // This will be removed during OGRE14 migration
-    struct RepoImageRequestHandler: public Ogre::WorkQueue::RequestHandler
-    {
-        Ogre::WorkQueue::Response* handleRequest(const Ogre::WorkQueue::Request* req, const Ogre::WorkQueue* srcQ) override;
-    };
-
-    // `Ogre::Any` holder requires the `<<` operator to be implemented, otherwise it won't compile. ~ This will also be removed during OGRE14 migration
-    inline std::ostream& operator<<(std::ostream& os, RepoImageDownloadRequest& val)
-    {
-        return os;
-    }
+    // OGRE14 migration DONE - both of the shims that used to live here are gone:
+    //
+    //   RepoImageRequestHandler : Ogre::WorkQueue::RequestHandler
+    //     OGRE 14 removed the channel/RequestHandler/Response machinery in
+    //     favour of WorkQueue::addTask(std::function<void()>), so downloads are
+    //     submitted as lambdas straight from the call site.
+    //
+    //   operator<<(std::ostream&, RepoImageDownloadRequest&)
+    //     Existed only because Ogre::Any required a streaming operator to box
+    //     the request pointer. No Any, no boxing, no operator needed.
 
 namespace GUI {
 
@@ -202,9 +201,8 @@ private:
     std::vector<RepoFileInstallRequest> m_queued_install_requests;
     RepoFileInstallRequestID_t          m_active_install_request_id = REPOFILEINSTALLREQUESTID_INVALID;
 
-    // This will be removed during OGRE14 migration
-    Ogre::uint16                        m_ogre_workqueue_channel = 0;
-    RepoImageRequestHandler             m_repo_image_request_handler;
+    // (OGRE14 migration: the WorkQueue channel id and request-handler instance
+    // that used to live here are gone - tasks carry their own state now.)
 
     // status or error messages
     std::string                         m_repofiles_msg;

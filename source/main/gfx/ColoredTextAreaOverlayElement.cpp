@@ -39,16 +39,28 @@ ColoredTextAreaOverlayElement::~ColoredTextAreaOverlayElement(void)
 {
 }
 
+/// Flag the colour vertex buffer dirty so OGRE calls updateColours() again.
+///
+/// OGRE 14 made mColoursChanged private, so it can no longer be set directly.
+/// setColour() is public and sets that flag as a side effect; re-applying the
+/// CURRENT colour therefore marks dirty without altering anything. The value
+/// itself is irrelevant here because updateColours() is overridden and writes
+/// per-character colours regardless.
+void ColoredTextAreaOverlayElement::markColoursDirty()
+{
+    TextAreaOverlayElement::setColour(TextAreaOverlayElement::getColour());
+}
+
 void ColoredTextAreaOverlayElement::setValueBottom(float Value)
 {
     m_ValueTop = Value;
-    mColoursChanged = true;
+    this->markColoursDirty();
 }
 
 void ColoredTextAreaOverlayElement::setValueTop(float Value)
 {
     m_ValueBottom = Value;
-    mColoursChanged = true;
+    this->markColoursDirty();
 }
 
 ColourValue ColoredTextAreaOverlayElement::GetColor(unsigned char ID, float Value)
@@ -130,19 +142,27 @@ void ColoredTextAreaOverlayElement::setCaption(const DisplayString& text)
             fill(m_Colors.begin() + i - (2 * iNumColorCodes) - iNumSpaces, m_Colors.end(), text[i + 1] - '0');
             ++i;
             ++iNumColorCodes;
-            mColoursChanged = true;
+            this->markColoursDirty();
             noColor = false;
         }
     }
     if (noColor)
-        mColoursChanged = true;
+        this->markColoursDirty();
     // Set the caption using the base class, but strip the color codes from it first
     TextAreaOverlayElement::setCaption(StripColors(text));
 }
 
 void ColoredTextAreaOverlayElement::updateColours(void)
 {
-    if (!mRenderOp.vertexData)
+    // OGRE 14 made mRenderOp and mAllocSize private in TextAreaOverlayElement
+    // (they were reachable from subclasses under 1.11). The public
+    // getRenderOperation() gives the same RenderOperation, and crucially
+    // vertexData is a POINTER - so the buffer reached through this copy is the
+    // very same one, and writes below still land where they must.
+    RenderOperation renderOp;
+    this->getRenderOperation(renderOp);
+
+    if (!renderOp.vertexData)
         return;
     // Convert to system-specific
     RGBA topColour, bottomColour;
@@ -151,14 +171,21 @@ void ColoredTextAreaOverlayElement::updateColours(void)
     Root::getSingleton().convertColourValue(ColourValue::White, &bottomColour);
 
     HardwareVertexBufferSharedPtr vbuf =
-        mRenderOp.vertexData->vertexBufferBinding->getBuffer(COLOUR_BINDING);
+        renderOp.vertexData->vertexBufferBinding->getBuffer(COLOUR_BINDING);
 
     //RGBA* pDest = static_cast<RGBA*>(
     //	vbuf->lock(HardwareBuffer::HBL_NORMAL) );
     RGBA* pDest = (RGBA*)malloc(vbuf->getSizeInBytes());
     RGBA* oDest = pDest;
 
-    for (size_t i = 0; i < mAllocSize; ++i)
+    // Was mAllocSize, now private in OGRE 14. It is the allocated CHARACTER
+    // count, and the loop writes exactly 6 vertices per character (two tris),
+    // so the buffer's own vertex count divided by 6 is the same number - and it
+    // is derived from the buffer actually being written rather than a
+    // separately-maintained field, so the two cannot drift apart.
+    const size_t allocatedChars = vbuf->getNumVertices() / 6;
+
+    for (size_t i = 0; i < allocatedChars; ++i)
     {
         if (i < m_Colors.size())
         {

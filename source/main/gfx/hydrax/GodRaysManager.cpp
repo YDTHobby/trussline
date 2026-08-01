@@ -1,7 +1,7 @@
 /*
 --------------------------------------------------------------------------------
 This source file is part of sssHydrax.
-sssHydrax is a modified version of Hydrax (Copyright (C) 2008 Xavier Verguín González)
+sssHydrax is a modified version of Hydrax (Copyright (C) 2008 Xavier Verguï¿½n Gonzï¿½lez)
 to adapt it to SonSilentSea.
 
 This program is free software; you can redistribute it and/or modify it under
@@ -18,7 +18,7 @@ this program; if not, write to the Free Software Foundation, Inc., 59 Temple
 Place - Suite 330, Boston, MA 02111-1307, USA, or go to
 http://www.gnu.org/copyleft/lesser.txt.
 
-Author: Jose Luis Cercós Pita
+Author: Jose Luis Cercï¿½s Pita
 --------------------------------------------------------------------------------
 */
 
@@ -132,7 +132,10 @@ namespace Hydrax
 		mManualGodRays->setVisible(mHydrax->_isCurrentFrameUnderwater());
 
 		mManualGodRays->begin(_def_GodRays_Material_Name, Ogre::RenderOperation::OT_TRIANGLE_LIST);
-		mManualGodRays->setRenderQueueGroup(Ogre::RENDER_QUEUE_9+1);
+		// Was Ogre::RENDER_QUEUE_9+1. OGRE 14 dropped RENDER_QUEUE_9; the enum
+		// now runs ..._8 = 80 then _SKIES_LATE = 90, which is the value _9 held.
+		// So _SKIES_LATE+1 is the same group number (91) this always used.
+		mManualGodRays->setRenderQueueGroup(Ogre::RENDER_QUEUE_SKIES_LATE+1);
 
 		for(int r = 0; r < mNumberOfRays; r++)
 		{

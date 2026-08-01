@@ -83,6 +83,20 @@ mark_as_advanced(
         LIBRARY_OUTPUT_PATH
 )
 
+# C++17 is now a floor, not a preference (Phase 2.0).
+#
+# MyGUI 3.4.3 - the first version that compiles against OGRE 14 - uses
+# std::string_view in its public headers (MyGUI_Macros.h:36). MSVC defaults to
+# C++14, which produced 102 errors of the form:
+#
+#   error C2039: 'string_view': is not a member of 'std'
+#
+# This also matches the Conan profile, which resolves dependencies at cppstd=17.
+# The UNIX branch below still forces -std=c++11 and will need the same treatment
+# when the Linux build is next exercised.
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 if (WIN32)
     add_definitions("/D_CRT_SECURE_NO_WARNINGS /wd4005 /wd4996 /wd4251 /wd4275 /wd4099 /nologo")
 
@@ -109,7 +123,10 @@ if (WIN32)
     SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${RUNTIME_OUTPUT_DIRECTORY})
 
 ELSEIF (UNIX)
-    set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+    # Was -std=c++11. MyGUI 3.4.3's headers need C++17 (see the note above
+    # CMAKE_CXX_STANDARD); hardcoding c++11 here would override it and break
+    # the Linux build in exactly the way the Windows one broke.
+    set(CMAKE_CXX_FLAGS "-std=c++17 ${CMAKE_CXX_FLAGS}")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}          -Og -g -Wall")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}        -O2 -ffast-math -DNDEBUG -Wno-deprecated-declarations -Wno-attributes")
     set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -ffast-math -g -fno-omit-frame-pointer -Wno-deprecated-declarations -Wno-attributes")

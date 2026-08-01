@@ -3,7 +3,7 @@
 This source file is part of Hydrax.
 Visit ---
 
-Copyright (C) 2008 Xavier Verguín González <xavierverguin@hotmail.com>
+Copyright (C) 2008 Xavier Verguï¿½n Gonzï¿½lez <xavierverguin@hotmail.com>
                                            <xavyiy@gmail.com>
 
 This program is free software; you can redistribute it and/or modify it under
@@ -29,6 +29,9 @@ http://www.gnu.org/copyleft/lesser.txt.
 #include "Perlin.h"
 
 #include "Enums.h"
+
+// Explicit since the OGRE 14 upgrade - see Skidmark.h for the same fix.
+#include <queue>
 
 /// @addtogroup Gfx
 /// @{

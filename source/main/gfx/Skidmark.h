@@ -27,6 +27,10 @@
 #include <OgreVector2.h>
 #include <OgreVector3.h>
 
+// Explicit since the OGRE 14 upgrade: OGRE 1.11's headers pulled <queue> in
+// transitively and 14's no longer do, so std::queue below stopped resolving.
+#include <queue>
+
 namespace RoR {
 
 class SkidmarkConfig //!< Skidmark config file parser and data container

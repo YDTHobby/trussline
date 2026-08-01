@@ -181,19 +181,24 @@ namespace Ogre {
         //////////////////////////////////////////////////////////////////////////
         /// @name Ogre::ParticleSystemRenderer interface
         /// @{
+        // OGRE 14 reworked this interface. Changes from the 1.11 form:
+        //   - _updateRenderQueue takes std::vector<Particle*>&; the legacy
+        //     Ogre::list<T>::type container typedef was removed entirely
+        //   - _notifyParticleRotated / _notifyParticleResized are GONE
+        //   - _createVisualData / _destroyVisualData are deprecated no-op
+        //     non-virtuals, so they can no longer be overridden
+        //   - setRenderQueueGroupAndPriority is new and PURE virtual, so it
+        //     must be implemented or the class stays abstract
         virtual const String& getType(void) const override;
-        virtual void _updateRenderQueue(RenderQueue* queue, Ogre::list<Particle*>::type& currentParticles, bool cullIndividually) override;
+        virtual void _updateRenderQueue(RenderQueue* queue, std::vector<Particle*>& currentParticles, bool cullIndividually) override;
         virtual void visitRenderables(Renderable::Visitor* visitor, bool debugRenderables = false) override;
         virtual void _setMaterial(MaterialPtr& mat) override;
         virtual void _notifyCurrentCamera(Camera* cam) override;
-        virtual void _notifyParticleRotated(void) override;
-        virtual void _notifyParticleResized(void) override;
         virtual void _notifyParticleQuota(size_t quota) override;
         virtual void _notifyAttached(Node* parent, bool isTagPoint = false) override;
         virtual void _notifyDefaultDimensions(Real width, Real height) override;
-        virtual ParticleVisualData* _createVisualData(void) override;
-        virtual void _destroyVisualData(ParticleVisualData* vis) override;
         virtual void setRenderQueueGroup(uint8 queueID) override;
+        virtual void setRenderQueueGroupAndPriority(uint8 queueID, ushort priority) override;
         virtual void setKeepParticlesInLocalSpace(bool keepLocal) override;
         virtual SortMode _getSortMode(void) const override;
         /// @}

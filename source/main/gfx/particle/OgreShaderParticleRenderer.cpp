@@ -129,7 +129,7 @@ const String& ShaderParticleRenderer::getType(void) const
 }
 
 //////////////////////////////////////////////////////////////////////////
-void ShaderParticleRenderer::_updateRenderQueue(RenderQueue* queue, Ogre::list<Particle*>::type& currentParticles, bool cullIndividually)
+void ShaderParticleRenderer::_updateRenderQueue(RenderQueue* queue, std::vector<Particle*>& currentParticles, bool cullIndividually)
 {
     // be sure that we have enough space in buffers
     if (!allocateBuffers(currentParticles.size())) {
@@ -179,17 +179,9 @@ void ShaderParticleRenderer::_notifyCurrentCamera(Camera* cam)
 {
 }
 
-//////////////////////////////////////////////////////////////////////////
-void ShaderParticleRenderer::_notifyParticleRotated(void)
-{
-    // nothing to do
-}
-
-//////////////////////////////////////////////////////////////////////////
-void ShaderParticleRenderer::_notifyParticleResized(void)
-{
-    // nothing to do
-}
+// _notifyParticleRotated() and _notifyParticleResized() removed: OGRE 14
+// dropped both from ParticleSystemRenderer. Both bodies were empty, so nothing
+// is lost.
 
 //////////////////////////////////////////////////////////////////////////
 void ShaderParticleRenderer::_notifyParticleQuota(size_t quota)
@@ -211,20 +203,26 @@ void ShaderParticleRenderer::_notifyDefaultDimensions(Real width, Real height)
     mDefaultParticleSize.y = height;
 }
 
-//////////////////////////////////////////////////////////////////////////
-ParticleVisualData* ShaderParticleRenderer::_createVisualData(void)
-{
-    return OGRE_NEW ParticleCustomParam();
-}
-
-//////////////////////////////////////////////////////////////////////////
-void ShaderParticleRenderer::_destroyVisualData(ParticleVisualData* vis)
-{
-    OGRE_DELETE vis;
-}
+// _createVisualData() / _destroyVisualData() removed: OGRE 14 demoted both to
+// deprecated non-virtual no-ops, so they can no longer be overridden and are
+// never called. They used to hand out a ParticleCustomParam per particle.
+//
+// ⚠️ BEHAVIOUR CHANGE, not a pure cleanup: per-particle custom shader
+// parameters are no longer allocated, so any particle script relying on
+// ParticleCustomParam will silently lose that data. RoR's own effects need
+// auditing for this before the visual pass in Phase 6.
 
 //////////////////////////////////////////////////////////////////////////
 void ShaderParticleRenderer::setRenderQueueGroup(uint8 queueID)
+{
+    mRenderQueueID = queueID;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// New pure virtual in OGRE 14, so it must be implemented. This renderer keeps
+// no priority of its own; matching setRenderQueueGroup's behaviour and ignoring
+// the priority preserves what the 1.11 build actually did.
+void ShaderParticleRenderer::setRenderQueueGroupAndPriority(uint8 queueID, ushort /*priority*/)
 {
     mRenderQueueID = queueID;
 }

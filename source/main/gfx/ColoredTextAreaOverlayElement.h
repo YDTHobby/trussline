@@ -40,6 +40,11 @@ public:
     void updateColours(void);
 
 protected:
+    /// Mark the colour vertex buffer dirty. OGRE 14 made
+    /// TextAreaOverlayElement::mColoursChanged private, so subclasses can no
+    /// longer set it directly - see the definition for how this substitutes.
+    void markColoursDirty();
+
     std::vector<unsigned char> m_Colors;
     float m_ValueTop;
     float m_ValueBottom;
