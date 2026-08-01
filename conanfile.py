@@ -19,10 +19,18 @@ class RoR(ConanFile):
         self.requires("discord-rpc/3.4.0@anotherfoxguy/stable")
         self.requires("libcurl/8.2.1")
         self.requires("fmt/12.1.0")
-        self.requires("mygui/3.4.0@anotherfoxguy/stable")
-        self.requires("ogre3d-caelum/0.6.3.1@anotherfoxguy/stable")
-        self.requires("ogre3d-pagedgeometry/1.2.0@anotherfoxguy/stable")
-        self.requires("ogre3d/1.11.6.1@anotherfoxguy/stable", force=True)
+        # Phase 2.0 - OGRE 1.11.6.1 -> 14.5.2, desktop first (ROADMAP 2.0).
+        # Doing the engine jump here, against a known-good reference build, keeps
+        # OGRE breakage and Android breakage from arriving at the same time and
+        # becoming mutually unattributable.
+        #
+        # 14.5.2 is the same version Spike A proved on Android, and the whole
+        # coupled set is already published on the RoR remote (the 2025.10 Caelum
+        # and PagedGeometry builds are the OGRE-14-compatible rebuilds).
+        self.requires("mygui/3.4.3@anotherfoxguy/stable")
+        self.requires("ogre3d-caelum/2025.10@anotherfoxguy/stable")
+        self.requires("ogre3d-pagedgeometry/2025.10@anotherfoxguy/stable")
+        self.requires("ogre3d/14.5.2@anotherfoxguy/stable", force=True)
         self.requires("ois/1.4.1@rigsofrods/custom")
         self.requires("openal-soft/1.24.3")
         self.requires("openssl/3.6.3", force=True)

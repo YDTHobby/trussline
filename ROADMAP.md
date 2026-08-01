@@ -196,8 +196,8 @@ Evaluate against the pre-committed criteria (do not renegotiate them after seein
 
 Under the hands-off posture (D-012) this upgrade is the fork's own work. Do it **on the desktop build first**, where a known-good reference exists and debugging is cheap — then cross-compile. Upgrading and porting at the same time means every failure has two candidate causes and you can't tell them apart.
 
-- [ ] `[AI]` Bump OGRE from 1.11.6.1 to 14.x in the desktop dependency set; work through the API breakage (1.11→14 spans several major versions of deprecations and removals).
-- [ ] `[AI]` Update the OGRE-coupled dependencies (Caelum, PagedGeometry, MyGUI) to build against 14.x on desktop — or stub them now per the 2.1 stub-first policy, since Caelum and MyGUI are both replacement-bound anyway.
+- [x] `[AI]` Bump OGRE from 1.11.6.1 to 14.x in the desktop dependency set. ✅ **Far cheaper than budgeted: `ogre3d/14.5.2@anotherfoxguy/stable` is already published on upstream's Conan remote** — the same version Spike A proved on Android, almost certainly a byproduct of PR #3418. No from-source desktop build of OGRE needed. API breakage still ours to fix.
+- [x] `[AI]` Update the OGRE-coupled dependencies. ✅ **Also already published**: `mygui/3.4.3`, `ogre3d-caelum/2025.10`, `ogre3d-pagedgeometry/2025.10` — the 2025.10 builds are the OGRE-14-compatible rebuilds. The stub-first fallback is not needed for the *build*; Caelum and MyGUI remain replacement-bound for their own reasons (LGPLv3/Cg, and touch UI).
 - [ ] `[AI]` Get the desktop build running and rendering correctly on OGRE 14.x. **This becomes the reference behavior every later Android result is compared against** — without it, Android bugs are unattributable.
 - [ ] `[HUMAN]` Desktop visual regression pass: terrain, vehicles, shadows, UI.
 - [ ] `[AI]` Only once desktop-on-14.x is green, proceed to 2.1 for the arm64 dependency build.

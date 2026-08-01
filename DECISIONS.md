@@ -17,7 +17,11 @@ Single source of truth for what is **locked**, what is **open**, and what was **
 
 # 🚦 GATE 1 — evidence summary (2026-07-31)
 
-**Status: evidence complete, awaiting the formal call.** Per ROADMAP, the gate is the human's decision; this records the evidence against the *pre-committed* thresholds so the call is made on measurements rather than impressions. Thresholds were fixed before any result was seen and are reproduced verbatim.
+## ✅ CALLED: **PASS** — continue the native port, do not pivot to Godot (2026-07-31)
+
+Decision made by the project owner on the evidence below. **Phase 2 is open.** The Godot 4 + solver-GDExtension contingency is **not** invoked and moves to dormant — but the solver stays behind its C-style API (D-009) regardless, since that isolation is cheap and remains useful for its own sake.
+
+Thresholds were fixed *before* any result was seen and are reproduced verbatim below, so the call rests on measurements rather than impressions.
 
 | Pre-committed threshold | Measured | Verdict |
 |---|---|---|
