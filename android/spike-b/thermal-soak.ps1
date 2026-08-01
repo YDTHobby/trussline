@@ -15,16 +15,22 @@ function Get-Temp {
     return $null
 }
 
-Write-Output "pass,temp_start_C,daf_us,agora_us,typical_us,heavy_us"
+# NOTE: temp_start_C is often blank - many devices (this Xiaomi included)
+# restrict /sys/class/thermal reads. That is not load-bearing: the throttling
+# signal we actually care about is whether us/step degrades across passes.
+Write-Output "pass,temp_start_C,daf_us,agora_us,typical_us,heavy_us,4x_us"
 
 for ($i = 1; $i -le $Passes; $i++) {
     $temp = Get-Temp
     $out = & $adb -s $Serial shell "/data/local/tmp/solver_bench $Steps"
 
-    $daf = ($out | Select-String "DAF semi").Line
-    $ago = ($out | Select-String "Agora bus").Line
-    $typ = ($out | Select-String "typical").Line
-    $hvy = ($out | Select-String "heavy vehicle").Line
+    # Anchor on the line START: "DAF semi" also matches "4x DAF semi", which
+    # silently reported the 4-actor figure in the single-vehicle column.
+    $daf = ($out | Select-String "^DAF semi").Line     | Select-Object -First 1
+    $ago = ($out | Select-String "^Agora bus").Line    | Select-Object -First 1
+    $typ = ($out | Select-String "^typical").Line      | Select-Object -First 1
+    $hvy = ($out | Select-String "^heavy vehicle").Line| Select-Object -First 1
+    $x4  = ($out | Select-String "^4x DAF").Line       | Select-Object -First 1
 
     function Field($line) {
         if (-not $line) { return "?" }
@@ -32,7 +38,7 @@ for ($i = 1; $i -le $Passes; $i++) {
         return $parts[$parts.Count - 3]
     }
 
-    Write-Output ("{0},{1},{2},{3},{4},{5}" -f $i, $temp, (Field $daf), (Field $ago), (Field $typ), (Field $hvy))
+    Write-Output ("{0},{1},{2},{3},{4},{5},{6}" -f $i, $temp, (Field $daf), (Field $ago), (Field $typ), (Field $hvy), (Field $x4))
 }
 
 Write-Output ""

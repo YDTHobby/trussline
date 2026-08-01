@@ -15,6 +15,27 @@ Single source of truth for what is **locked**, what is **open**, and what was **
 
 ---
 
+# 🚦 GATE 1 — evidence summary (2026-07-31)
+
+**Status: evidence complete, awaiting the formal call.** Per ROADMAP, the gate is the human's decision; this records the evidence against the *pre-committed* thresholds so the call is made on measurements rather than impressions. Thresholds were fixed before any result was seen and are reproduced verbatim.
+
+| Pre-committed threshold | Measured | Verdict |
+|---|---|---|
+| **Spike A framerate** — ~30 fps at 720p-class on the entry-tier device after reasonable optimisation | 1532×720 on the real device, **vsync-locked ~59.5 fps**. ⚠️ *One triangle* — not a representative scene | **exceeds, but scene is trivial** |
+| **Spike A feasibility** — OGRE 14.x builds and renders on Android within a *bounded* effort, not months of fighting | One working session: builds clean for both ABIs, renders lit RTSS-shaded geometry on a real Mali driver, **no driver workarounds** | **PASS, comfortably** |
+| **Spike B physics budget** — one representative vehicle sustains 2 kHz within ~30% CPU budget | **4.1–4.3%** for real-content vehicles; 12.8% for an estimated heavy vehicle. ⚠️ *Lower bound* — excludes wheels/shocks/hydros/engine/aero/collision | **PASS with ~4–7× margin** |
+| **Vulkan driver failures** — confined to a small fraction of target devices | Zero failures on the one real device tested (Mali, Vulkan 1.1.177). Sample size **one** — R-02 stands | **no evidence of failure; unproven at fleet scale** |
+
+**Supporting:** thermal soak over 6 sustained passes shows **no throttling** — Agora bus varies 0.14%, heavy 0.17%. Caveat: single-threaded CPU-only for ~3 min, where R-06 asks for 20–30 min with CPU **and** GPU together.
+
+**Recommendation: PASS the gate — continue the native port, do not pivot to Godot.** Every functional question the gate was designed to answer came back affirmative on real hardware, and the physics margin is large enough to absorb roughly a 4× underestimate.
+
+**What a PASS does *not* settle**, and Phase 4 must convert into real measurements: the render test is one triangle, not vehicles-on-terrain; the physics figure is a lower bound from two loops, not the full solver; the soak is CPU-only; and the driver evidence is a single device. None of these are reasons to withhold the gate — they are the reasons Phase 4 exists.
+
+**Unchanged by this gate:** R-21 (content licensing) remains the project's genuine existential risk. The engineering keeps proving tractable; shipping a strong simulator with three legally-clean vehicles is still the thing that would make it pointless.
+
+---
+
 # Locked decisions
 
 ## D-001: Native port (not engine swap, not rewrite)
