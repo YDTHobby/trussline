@@ -142,7 +142,7 @@ void ShaderParticleRenderer::_updateRenderQueue(RenderQueue* queue, std::vector<
     if (!currentParticles.empty()) {
         HardwareVertexBufferSharedPtr pVB = mVertexData->vertexBufferBinding->getBuffer(0);
         uchar* pDataVB  = reinterpret_cast<uchar*>(pVB->lock(HardwareBuffer::HBL_DISCARD));
-        for (Ogre::list<Particle*>::type::iterator it=currentParticles.begin(); it!=currentParticles.end(); ++it) {
+        for (std::vector<Particle*>::iterator it=currentParticles.begin(); it!=currentParticles.end(); ++it) {
             Particle* pParticle = *it;
             addParticle(pDataVB, *pParticle);
             pDataVB += 4 * mVertexSize;
@@ -443,12 +443,18 @@ void ShaderParticleRenderer::addParticle(uint8* pDataVB, const Particle& particl
 
     // diffuse colour
     if (mVertexFormatColour) {
+        // OGRE 14 changed Particle::mColour from a ColourValue (four floats) to
+        // a packed RGBA word, so .r/.g/.b/.a no longer exist. Unpack once
+        // outside the loop rather than four times inside it.
+        ColourValue particleColour;
+        particleColour.setAsRGBA(particle.mColour);
+
         for (int k=0; k<4; ++k) {
             float* pColour = reinterpret_cast<float*>(pDataVB + k*mVertexSize + ofs);
-            pColour[0] = particle.mColour.r;
-            pColour[1] = particle.mColour.g;
-            pColour[2] = particle.mColour.b;
-            pColour[3] = particle.mColour.a;
+            pColour[0] = particleColour.r;
+            pColour[1] = particleColour.g;
+            pColour[2] = particleColour.b;
+            pColour[3] = particleColour.a;
         }
         ofs += sizeof(float) * 4;
     }
@@ -547,9 +553,22 @@ void ShaderParticleRenderer::addParticle(uint8* pDataVB, const Particle& particl
         ofs += sizeof(float);
     }
 
-    // custom parameter
-    ParticleCustomParam* pCustom = static_cast<ParticleCustomParam*>(particle.getVisualData());
-    const Vector4& customData = pCustom != NULL ? pCustom->paramValue : Vector4::ZERO;
+    // Custom parameter - permanently zero as of OGRE 14.
+    //
+    // OGRE 14 removed per-particle visual data outright: Particle::getVisualData()
+    // no longer exists, ParticleVisualData is only a forward declaration, and
+    // _createVisualData/_destroyVisualData are deprecated no-ops. So there is no
+    // longer anywhere for a ParticleCustomParam to live.
+    //
+    // The vertex layout is unchanged - these four floats are still written, just
+    // always zero - so shaders reading the custom param still compile and run.
+    // The pre-existing code already fell back to Vector4::ZERO when visual data
+    // was absent, so this is that path taken unconditionally.
+    //
+    // ⚠️ Any particle script that relied on a non-zero custom param loses it.
+    // Audit RoR's effects before the Phase 6 visual pass; reinstating this needs
+    // a different mechanism under OGRE 14.
+    const Vector4& customData = Vector4::ZERO;
     for (int k=0; k<4; ++k) {
         float* pParams = reinterpret_cast<float*>(pDataVB + k*mVertexSize + ofs);
         pParams[0] = customData.x;
@@ -596,9 +615,9 @@ void ShaderParticleRenderer::CmdVertexFormatColour::doSet(void* target, const St
     static_cast<ShaderParticleRenderer*>(target)->setVertexFormatColour(
         StringConverter::parseBool(val));
 }
-void ShaderParticleRenderer::setRenderQueueGroupAndPriority(Ogre::uint8,Ogre::ushort)
-{
-}
+// (An empty setRenderQueueGroupAndPriority stub lived here. It is now defined
+// near setRenderQueueGroup and actually applies the queue ID, rather than
+// silently discarding it.)
 
 //////////////////////////////////////////////////////////////////////////
 String ShaderParticleRenderer::CmdVertexFormatTexture::doGet(const void* target) const

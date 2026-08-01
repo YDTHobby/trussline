@@ -90,13 +90,13 @@ void FireExtinguisherAffector::_affectParticles(ParticleSystem* pSystem, Real ti
         Real squaredRadius = Math::Pow(fire->getRadius(), 2);
         Vector3 middlePoint = fire->getAbsoluteMiddlePoint();
 
-        ParticleIterator pi = pSystem->_getIterator();
-        Particle *p;
+        // OGRE 14 removed ParticleIterator / ParticleSystem::_getIterator().
+        // _getActiveParticles() returning a std::vector<Particle*> is the
+        // replacement, and range-for over it is the idiom OGRE's own built-in
+        // affectors now use.
         int fireHits = 0;
-        while (!pi.end())
+        for (Particle* p : pSystem->_getActiveParticles())
         {
-            p = pi.getNext();
-
             if ( middlePoint.squaredDistance(p->mPosition) < squaredRadius )
             {
                 // This particle is inside the fire, dispose of it in the next update

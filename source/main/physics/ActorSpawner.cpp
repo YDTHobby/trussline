@@ -78,6 +78,9 @@
 #include <OgreSceneManager.h>
 #include <OgreMovableObject.h>
 #include <OgreParticleSystem.h>
+// ParticleSystemFactory (for FACTORY_TYPE_NAME) lives here; it was reachable
+// transitively before the OGRE 14 upgrade.
+#include <OgreParticleSystemManager.h>
 #include <OgreEntity.h>
 #include <climits>
 #include <fmt/format.h>

@@ -19,6 +19,10 @@
 
 #pragma once
 
+// Explicit since the OGRE 14 upgrade - OGRE 1.11's headers pulled this in
+// transitively and 14's no longer do.
+#include <unordered_set>
+
 #include "Application.h"
 
 namespace RoR {

@@ -49,7 +49,9 @@ class ExtinguishableFireAffectorFactory : public ParticleAffectorFactory
 
 public:
 
-    typedef VectorIterator<vector<ParticleAffector*>::type> affectorIterator;
+    // Was VectorIterator<vector<ParticleAffector*>::type>. OGRE 14 removed the
+    // legacy Ogre::vector<T>::type container typedef in favour of std::vector.
+    typedef VectorIterator<std::vector<ParticleAffector*>> affectorIterator;
 
     /** Allow external access to the mFactories iterator */
     affectorIterator getAffectorIterator() { return affectorIterator(mAffectors.begin(), mAffectors.end()); }

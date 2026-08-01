@@ -221,7 +221,9 @@ namespace Ogre {
 
         /// add particle to vertex buffer
         void addParticle(uint8* pDataVB, const Particle& particle) const;
-        void setRenderQueueGroupAndPriority(Ogre::uint8,Ogre::ushort);
+        // (setRenderQueueGroupAndPriority was declared here privately; it is now
+        // a public virtual override alongside setRenderQueueGroup, where it
+        // belongs, since OGRE 14 made it part of the renderer interface.)
     protected:
         static CmdVertexFormatColour		msVertexFmtColour;
         static CmdVertexFormatTexture		msVertexFmtTexture;

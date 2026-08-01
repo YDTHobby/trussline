@@ -978,8 +978,10 @@ bool DashBoard::parseLink(std::string& linkArgs, int& linkID, char& condition, f
 
 void DashBoard::loadLayoutRecursive(MyGUI::WidgetPtr w)
 {
-    std::string name = w->getName();
-    std::string debug = w->getUserString("debug");
+    // MyGUI 3.4.3 returns std::string_view from these, so the conversion to
+    // std::string has to be explicit now.
+    std::string name = std::string(w->getName());
+    std::string debug = std::string(w->getUserString("debug"));
 
     // make it unclickable
     w->setUserString("interactive", "0");
@@ -1039,7 +1041,7 @@ void DashBoard::loadLayoutRecursive(MyGUI::WidgetPtr w)
     std::string formatNumStr = "format";
     std::string directionNumStr = "direction";
 
-    std::string anim = w->getUserString(animNumStr);
+    std::string anim = std::string(w->getUserString(animNumStr)); // MyGUI 3.4.3 returns string_view
     std::string linkArgs;
     if (anim != "")
     {
@@ -1161,7 +1163,7 @@ void DashBoard::loadLayoutRecursive(MyGUI::WidgetPtr w)
                     ctrl.graphicalAnimation.condition = condition;
                     ctrl.graphicalAnimation.conditionArgument = conditionArgument;
 
-                    String texture = w->getUserString(textureNumStr);
+                    String texture = String(w->getUserString(textureNumStr)); // MyGUI 3.4.3 returns string_view
                     if (!texture.empty())
                         strncpy(ctrl.graphicalAnimation.texture, texture.c_str(), sizeof ctrl.graphicalAnimation.texture);
 

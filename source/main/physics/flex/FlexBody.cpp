@@ -21,6 +21,10 @@
 
 #include "FlexBody.h"
 
+// Ogre::BufferUsageList lives here and is no longer reachable transitively
+// after the OGRE 14 upgrade.
+#include <OgreVertexIndexData.h>
+
 #include "Application.h"
 #include "ApproxMath.h"
 #include "Console.h"
