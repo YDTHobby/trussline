@@ -1,25 +1,48 @@
 # Trussline Conan host profile (Windows / MSVC).
 #
-# Matches the ACTUAL installed toolchain. Do not pin compiler.version to reach
-# older prebuilt binaries - that was tried and it fails:
+# Matches the compiler that ACTUALLY builds this project: cl 19.44 from
+# Visual Studio Build Tools 2022 (_MSC_VER 1944 -> Conan compiler.version=194).
 #
-#   compiler.version=193  ->  Conan passes vcvars_ver=14.3 to conanvcvars.bat
-#                         ->  "Toolset directory for version '14.3' was not found"
+# `conan profile detect` gets this WRONG on this machine. It reports 195,
+# because vswhere finds "Visual Studio Community 2026" (v18.7) - an install
+# that carries NO C++ toolset at all (confirmed: vswhere -requires
+# VC.Tools.x86.x64 lists only the 2022 and 2019 Build Tools). Conan then tries
+# to drive a toolchain that cannot compile anything:
 #
-# because this machine has MSVC 14.44 (a 14.4x toolset). The version setting is
-# not merely a package-ID label; Conan derives the vcvars toolset request from
-# it, so lying about it breaks every from-source dependency build.
+#   compiler.version=195  ->  CMake Error: Could not create named generator
+#                             "Visual Studio 18 2026"
 #
-# The consequence is that dependencies without a matching prebuilt binary get
-# built from source. That is slower but correct, and it is the reason the MyGUI
-# recipe bug matters (see conanfile.py).
+# Two other values were tried and are worse - recorded so they are not retried:
+#
+#   compiler.version=193  ->  Conan requests vcvars_ver=14.3, but this machine
+#                             has a 14.4x toolset:
+#                             "Toolset directory for version '14.3' was not found"
+#                             Every from-source dependency build dies.
+#
+# compiler.version is not a cosmetic package-ID label: Conan derives both the
+# vcvars toolset request and the CMake generator from it. It must describe the
+# compiler that is really present.
 
 [settings]
 os=Windows
 arch=x86_64
 build_type=Release
 compiler=msvc
-compiler.version=195
-compiler.cppstd=14
+compiler.version=194
+# cppstd=17, not Conan's default 14. The RoR remote publishes its prebuilt
+# binaries at cppstd=17/20/23; at 14 almost nothing matches and Conan falls
+# back to building from source. That matters beyond speed: MyGUI 3.4.1/3.4.3
+# CANNOT be built from source (their recipe references a
+# CMake/Utils/PrecompiledHeader.cmake absent from the tarball), and MyGUI 3.4.0
+# - the one that does build - is incompatible with OGRE 14:
+#
+#   MyGUI_OgreRenderManager.cpp(371): error C2039:
+#     '_setTextureAddressingMode': is not a member of 'Ogre::RenderSystem'
+#
+# So reaching the published 3.4.x binaries is the only route to a MyGUI that
+# works with OGRE 14. Unlike the compiler.version pin tried earlier, this is a
+# genuine build choice rather than a misdescription of the toolchain: RoR's
+# MSVC path sets no language standard, and C++17 is a superset of what it uses.
+compiler.cppstd=17
 compiler.runtime=dynamic
 compiler.runtime_type=Release

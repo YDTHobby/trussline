@@ -27,21 +27,25 @@ class RoR(ConanFile):
         # 14.5.2 is the same version Spike A proved on Android, and the whole
         # coupled set is already published on the RoR remote (the 2025.10 Caelum
         # and PagedGeometry builds are the OGRE-14-compatible rebuilds).
-        # MyGUI stays at 3.4.0 for now, NOT because it is preferred but because
-        # it is the only version with a prebuilt binary matching this toolchain.
-        # 3.4.1 and 3.4.3 both fail when built from source - their recipe's
-        # build() references CMake/Utils/PrecompiledHeader.cmake, which the
-        # source tarball does not contain (FileNotFoundError, reproduced on
-        # both). Pinning compiler.version to reach their older binaries was
-        # tried and is worse: Conan then requests a vcvars toolset that is not
-        # installed. See cmake/conan-profile-windows.txt.
+        # MyGUI 3.4.3, and the version choice is forced from both directions:
+        #
+        #   3.4.0  builds fine, but is INCOMPATIBLE with OGRE 14 -
+        #          RenderSystem::_setTextureAddressingMode was removed
+        #          (MyGUI_OgreRenderManager.cpp:371, error C2039)
+        #   3.4.1/ fix OGRE 14 compatibility, but CANNOT be built from source -
+        #   3.4.3  recipe references CMake/Utils/PrecompiledHeader.cmake, which
+        #          the source tarball lacks (FileNotFoundError)
+        #
+        # The way through is to consume the PUBLISHED binaries rather than
+        # building, which is why the profile sets cppstd=17 - that is where the
+        # remote's binaries live. See cmake/conan-profile-windows.txt.
         #
         # OPEN QUESTION for the OGRE 14 upgrade: this binary was built against
         # OGRE 1.11 headers, so it may be ABI-incompatible with 14.5.2. If the
         # link fails, the options are (a) fix the recipe locally and build from
         # source, or (b) bring the MyGUI removal forward from Phase 5 - it is
         # replacement-bound anyway because it is not touch-capable.
-        self.requires("mygui/3.4.0@anotherfoxguy/stable")
+        self.requires("mygui/3.4.3@anotherfoxguy/stable")
         self.requires("ogre3d-caelum/2025.10@anotherfoxguy/stable")
         self.requires("ogre3d-pagedgeometry/2025.10@anotherfoxguy/stable")
         self.requires("ogre3d/14.5.2@anotherfoxguy/stable", force=True)

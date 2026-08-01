@@ -1,0 +1,107 @@
+from conan import ConanFile
+from conan.tools.files import get, collect_libs, replace_in_file
+from conan.tools.cmake import CMakeToolchain, CMake, CMakeDeps, cmake_layout
+import os
+
+
+class MyGUIConan(ConanFile):
+    name = "mygui"
+    license = "MIT"
+    url = "https://github.com/AnotherFoxGuy/conan-MyGUI"
+    description = "Fast, flexible and simple GUI."
+    settings = "os", "compiler", "build_type", "arch"
+    options = {"system_ogre": [True, False]}
+    default_options = {"system_ogre": False}
+
+    def layout(self):
+        cmake_layout(self)
+
+    def requirements(self):
+        if not self.options.system_ogre:
+            self.requires("ogre3d/[>=1 <15]@anotherfoxguy/stable")
+            self.requires("zlib/1.3", override=True)
+
+    def build_requirements(self):
+        self.tool_requires("cmake/[>=3.22 <4]")
+
+    def source(self):
+        get(self, **self.conan_data["sources"][self.version], strip_root=True)
+
+    def generate(self):
+        tc = CMakeToolchain(self)
+        tc.variables["MYGUI_BUILD_DEMOS"] = "OFF"
+        tc.variables["MYGUI_BUILD_DOCS"] = "OFF"
+        tc.variables["MYGUI_BUILD_TEST_APP"] = "OFF"
+        tc.variables["MYGUI_BUILD_PLUGINS"] = "OFF"
+        tc.variables["MYGUI_BUILD_TOOLS"] = "OFF"
+        tc.variables["MYGUI_RENDERSYSTEM"] = "3"
+        tc.generate()
+        deps = CMakeDeps(self)
+        deps.generate()
+
+    def _patch_sources(self):
+        replace_in_file(self,
+            os.path.join(self.source_folder, "MyGUIEngine/CMakeLists.txt"),
+            "${FREETYPE_LIBRARIES}",
+            "freetype",
+        )
+        replace_in_file(self,
+            os.path.join(self.source_folder, "CMake/Dependencies.cmake"),
+            "find_package(OGRE_Old)",
+            "find_package(OGRE CONFIG)",
+        )
+        replace_in_file(self,
+            os.path.join(self.source_folder, "Platforms/Ogre/OgrePlatform/CMakeLists.txt"),
+            "${OGRE_LIBRARIES}",
+            "OGRE::OGRE",
+        )
+        # TRUSSLINE LOCAL FIX -- upstream recipe bug.
+        #
+        # This patch neutralises MyGUI's hand-rolled MSVC precompiled-header
+        # logic in favour of target_precompile_headers(). But MyGUI removed
+        # CMake/Utils/PrecompiledHeader.cmake in 3.4.1+, so on those versions
+        # the unconditional replace_in_file() aborts the whole build with:
+        #
+        #   FileNotFoundError: ... CMake/Utils/PrecompiledHeader.cmake
+        #
+        # which is why mygui 3.4.1 and 3.4.3 cannot be built from source at all
+        # on this remote. Guarding it keeps 3.4.0 working (the file exists
+        # there) while letting newer versions build - and those are the ones we
+        # need, since 3.4.0 does not compile against OGRE 14
+        # (RenderSystem::_setTextureAddressingMode was removed).
+        #
+        # Upstream fix would be the same guard in AnotherFoxGuy/conan-MyGUI.
+        pch_cmake = os.path.join(self.source_folder, "CMake/Utils/PrecompiledHeader.cmake")
+        if os.path.exists(pch_cmake):
+            replace_in_file(self,
+                pch_cmake,
+                "if (MSVC)",
+                """
+                target_precompile_headers(${TARGET} PRIVATE ${SRC_FILE})
+                if (0)
+                """,
+            )
+
+    def build(self):
+        self._patch_sources()
+        cmake = CMake(self)
+        cmake.configure()
+        cmake.build()
+
+    def package(self):
+        cmake = CMake(self)
+        cmake.install()
+
+    def package_info(self):
+        self.cpp_info.set_property("cmake_module_file_name", "MyGUI")
+        self.cpp_info.set_property("cmake_module_target_name", "MyGUI::MyGUI")
+        self.cpp_info.set_property("cmake_file_name", "MyGUI")
+        self.cpp_info.set_property("cmake_target_name", "MyGUI::MyGUI")
+        self.cpp_info.includedirs = ['include/MYGUI']
+        # Directories where libraries can be found
+        self.cpp_info.libdirs = ['lib', f'lib/{self.settings.build_type}']
+        self.cpp_info.libs = collect_libs(self)
+
+    def package_id(self):
+        if not self.info.options.system_ogre:
+            self.info.requires["ogre3d"].full_recipe_mode()
