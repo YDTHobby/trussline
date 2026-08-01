@@ -27,12 +27,21 @@ class RoR(ConanFile):
         # 14.5.2 is the same version Spike A proved on Android, and the whole
         # coupled set is already published on the RoR remote (the 2025.10 Caelum
         # and PagedGeometry builds are the OGRE-14-compatible rebuilds).
-        # 3.4.3's recipe is broken on the remote - its build() references
-        # CMake/Utils/PrecompiledHeader.cmake, which its source tarball does not
-        # contain (FileNotFoundError). 3.4.1 is the next candidate. MyGUI is
-        # replacement-bound in Phase 5 regardless, so any version that builds
-        # against OGRE 14 is sufficient here.
-        self.requires("mygui/3.4.1@anotherfoxguy/stable")
+        # MyGUI stays at 3.4.0 for now, NOT because it is preferred but because
+        # it is the only version with a prebuilt binary matching this toolchain.
+        # 3.4.1 and 3.4.3 both fail when built from source - their recipe's
+        # build() references CMake/Utils/PrecompiledHeader.cmake, which the
+        # source tarball does not contain (FileNotFoundError, reproduced on
+        # both). Pinning compiler.version to reach their older binaries was
+        # tried and is worse: Conan then requests a vcvars toolset that is not
+        # installed. See cmake/conan-profile-windows.txt.
+        #
+        # OPEN QUESTION for the OGRE 14 upgrade: this binary was built against
+        # OGRE 1.11 headers, so it may be ABI-incompatible with 14.5.2. If the
+        # link fails, the options are (a) fix the recipe locally and build from
+        # source, or (b) bring the MyGUI removal forward from Phase 5 - it is
+        # replacement-bound anyway because it is not touch-capable.
+        self.requires("mygui/3.4.0@anotherfoxguy/stable")
         self.requires("ogre3d-caelum/2025.10@anotherfoxguy/stable")
         self.requires("ogre3d-pagedgeometry/2025.10@anotherfoxguy/stable")
         self.requires("ogre3d/14.5.2@anotherfoxguy/stable", force=True)

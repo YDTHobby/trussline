@@ -1,29 +1,25 @@
 # Trussline Conan host profile (Windows / MSVC).
 #
-# Why this exists rather than using Conan's auto-detected default:
+# Matches the ACTUAL installed toolchain. Do not pin compiler.version to reach
+# older prebuilt binaries - that was tried and it fails:
 #
-# The RoR dependency remote publishes prebuilt binaries for MSVC
-# compiler.version=193. Auto-detection on a current VS 2022 install reports
-# 195, so Conan finds no matching binary and falls back to building from
-# source - which fails, because the MyGUI recipe's build() references
-# CMake/Utils/PrecompiledHeader.cmake, a file its source tarball does not
-# contain (FileNotFoundError, reproduced on both 3.4.1 and 3.4.3).
+#   compiler.version=193  ->  Conan passes vcvars_ver=14.3 to conanvcvars.bat
+#                         ->  "Toolset directory for version '14.3' was not found"
 #
-# 193 and 195 are both VS 2022 on the SAME v143 toolset and are ABI-compatible,
-# so this only steers Conan's package-ID resolution toward the published
-# binaries. The actual compiler used is still the real cl.exe from vcvars -
-# nothing is misbuilt, and the binaries we pull were produced by a compatible
-# toolset.
+# because this machine has MSVC 14.44 (a 14.4x toolset). The version setting is
+# not merely a package-ID label; Conan derives the vcvars toolset request from
+# it, so lying about it breaks every from-source dependency build.
 #
-# Revisit when: the remote publishes 195 binaries, or the MyGUI recipe is
-# fixed upstream, or MyGUI is removed entirely (Phase 5 replaces it for touch).
+# The consequence is that dependencies without a matching prebuilt binary get
+# built from source. That is slower but correct, and it is the reason the MyGUI
+# recipe bug matters (see conanfile.py).
 
 [settings]
 os=Windows
 arch=x86_64
 build_type=Release
 compiler=msvc
-compiler.version=193
+compiler.version=195
 compiler.cppstd=14
 compiler.runtime=dynamic
 compiler.runtime_type=Release
