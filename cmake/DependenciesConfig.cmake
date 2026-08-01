@@ -3,7 +3,17 @@ set(CMAKE_THREAD_PREFER_PTHREAD YES)
 find_package(Threads REQUIRED)
 
 # --- Ogre 3D graphics engine ---
-find_package(OGRE 1.11 REQUIRED COMPONENTS Bites Overlay Paging RTShaderSystem MeshLodGenerator Terrain)
+#
+# Was `find_package(OGRE 1.11 ...)`. OGRE's own OGREConfigVersion.cmake matches
+# on major version, so asking for 1.11 REJECTS 14.5.2 outright:
+#
+#   Could not find a configuration file for package "OGRE" that is compatible
+#   with requested version "1.11"
+#     ... OGREConfig.cmake, version: 14.5.2
+#
+# Requesting 14 pins us to the major version we actually target (Phase 2.0), and
+# will loudly reject a stale 1.x install rather than silently half-configuring.
+find_package(OGRE 14 REQUIRED COMPONENTS Bites Overlay Paging RTShaderSystem MeshLodGenerator Terrain)
 
 # --- Object Oriented Input System ---
 find_package(OIS REQUIRED)
